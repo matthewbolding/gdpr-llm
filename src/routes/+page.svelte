@@ -14,6 +14,9 @@
     try {
       console.log(`Fetching data for page ${page} with limit ${limit}...`);
 
+      dataLoaded = false; // Prevent stale data from appearing
+      latestAnswers = []; // Reset latestAnswers before fetching
+
       // Fetch questions
       const questionsRes = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}`);
       const questionsData = await questionsRes.json();
