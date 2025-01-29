@@ -7,7 +7,7 @@
   $: id = $page.params.id;
 
   let question = null;
-  let modifiedTexts = {}; // Ensures each answer has its own reactive value
+  let modifiedTexts = {}; // Stores the text for each answer
   let unsavedChanges = false;
 
   // Fetch question details
@@ -15,7 +15,6 @@
     try {
       console.log(`Fetching question with ID: ${id}`);
 
-      // Fetch the question text
       const questionRes = await fetch(`http://localhost:3000/api/question?questionId=${id}`);
       const questionData = await questionRes.json();
 
@@ -24,7 +23,6 @@
         return;
       }
 
-      // Extract the actual question object
       question = questionData.question[0];
 
       // Fetch the latest answers for this question
@@ -38,38 +36,37 @@
         return;
       }
 
-      // Attach answers to the question
       question.answers = answersData.answers;
-
+      console.log(question.answers)
+      
       // Initialize modifiedTexts for each answer
       modifiedTexts = {};
       for (const answer of question.answers) {
-        modifiedTexts[answer.id] = answer.final_text || ''; // Ensure default values
+        modifiedTexts[answer.answer_id] = answer.final_text
+        modifiedTexts = { ...modifiedTexts };
       }
 
-      // Wait for UI updates
       await tick();
     } catch (error) {
       console.error('Error fetching question:', error);
     }
   }
 
-  // Update modifiedTexts manually to ensure proper reactivity
   function updateText(answerId, event) {
-    modifiedTexts = { ...modifiedTexts, [answerId]: event.target.value };
+    modifiedTexts[answerId] = event.target.value;
+    modifiedTexts = { ...modifiedTexts }; // Ensure reactivity
     unsavedChanges = true;
   }
 
-  // Save modifications
-  async function saveChanges() {
+  async function saveChanges(answerId) {
     try {
-      for (const [answerId, text] of Object.entries(modifiedTexts)) {
-        await fetch(`http://localhost:3000/api/edits?answer_id=${answerId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: 1, modifiedText: text })
-        });
-      }
+      const text = modifiedTexts[answerId];
+      await fetch(`http://localhost:3000/api/edits?answer_id=${answerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 999, modifiedText: text, status: "in progress" })
+      });
+
       unsavedChanges = false;
       alert('Changes saved!');
     } catch (error) {
@@ -78,23 +75,21 @@
     }
   }
 
-  // Reset modifications
-  function resetChanges() {
+  function resetChanges(answerId) {
     if (question && question.answers) {
-      modifiedTexts = {};
-      for (const answer of question.answers) {
-        modifiedTexts[answer.id] = answer.final_text || ''; // Reset to original value
+      const answer = question.answers.find(a => a.answer_id === answerId);
+      console.log(answer)
+      if (answer) {
+        modifiedTexts = { ...modifiedTexts, [answerId]: answer.final_text || '' }; // Reset only the specific answer
       }
     }
     unsavedChanges = false;
   }
 
-  // Go back to the home page
   function goToHomePage() {
     goto('/');
   }
 
-  // Warn before leaving the page (Only in browser)
   if (typeof window !== 'undefined') {
     window.onbeforeunload = () => {
       if (unsavedChanges) {
@@ -114,23 +109,22 @@
 
     <div class="answer-container">
       {#if question.answers && question.answers.length > 0}
-        {#each question.answers as answer, index (answer.id || index)}
+        {#each question.answers as answer, index (answer.answer_id || index)}
           <div class="answer-box">
             <h3 class="model-title">{answer.model_name}</h3>
             <textarea
-              value={modifiedTexts[answer.id] || ''}
-              on:input={(event) => updateText(answer.id, event)}
+              bind:value={modifiedTexts[answer.answer_id]}
+              on:input={(event) => updateText(answer.answer_id, event)}
             ></textarea>
+            <button class="save-btn" on:click={() => saveChanges(answer.answer_id)}>Save</button>
+            <div class="button-container">
+              <button class="reset-btn" on:click={() => resetChanges(answer.answer_id)}>Reset</button>
+            </div>
           </div>
         {/each}
       {:else}
         <p class="no-answers">No answers available.</p>
       {/if}
-    </div>
-
-    <div class="button-container">
-      <button class="save-btn" on:click={saveChanges}>Save for Later</button>
-      <button class="reset-btn" on:click={resetChanges}>Reset</button>
     </div>
 
     <div class="nav-container">

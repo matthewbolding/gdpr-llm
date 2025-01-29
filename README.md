@@ -4,6 +4,10 @@ To Do:
 - Fix unique textboxing in questions tab.
 - Selector not displaying current number of items per page.
 - Requires major refactor of backend.
+- Ability to submit completely human-produced answers.
+- Ability to rate a question (textbox).
+- Time spent on one question.
+- Saving and then resetting reverts incorrectly.
 
 # sv
 
