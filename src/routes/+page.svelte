@@ -3,19 +3,19 @@
   import { goto } from '$app/navigation';
 
   let questions = [];
-  let latestAnswers = [];
+  let latestResponses = [];
   let currentPage = 1;
   let totalPages = 1;
   let questionsPerPage = 5; // Default number of questions per page
   let dataLoaded = false; // Ensures data is loaded before rendering
 
-  // Fetch both questions and latest answers from the backend with pagination
+  // Fetch questions and latest responses
   async function fetchData(page = 1, limit = questionsPerPage) {
     try {
-      console.log(`Fetching data for page ${page} with limit ${limit}...`);
+      console.log(`Fetching questions for page ${page} with limit ${limit}...`);
 
       dataLoaded = false; // Prevent stale data from appearing
-      latestAnswers = []; // Reset latestAnswers before fetching
+      latestResponses = []; // Reset latest responses before fetching
 
       // Fetch questions
       const questionsRes = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}`);
@@ -27,13 +27,19 @@
       totalPages = questionsData.totalPages;
       currentPage = questionsData.currentPage;
 
-      // Fetch latest answers
-      const answersRes = await fetch(`http://localhost:3000/api/latest-answers?page=${page}&limit=${limit}`);
-      const answersData = await answersRes.json();
+      // Fetch latest responses for each question
+      const responsesPromises = questions.map(async (question) => {
+        const responsesRes = await fetch(`http://localhost:3000/api/responses?questionId=${question.question_id}`);
+        if (responsesRes.ok) {
+          const responsesData = await responsesRes.json();
+          return { question_id: question.question_id, responses: responsesData.responses };
+        }
+        return { question_id: question.question_id, responses: [] };
+      });
 
-      console.log('Latest Answers API Response:', answersData);
+      latestResponses = await Promise.all(responsesPromises);
 
-      latestAnswers = answersData.results;
+      console.log('Latest Responses API Response:', latestResponses);
       dataLoaded = true; // Mark data as loaded
 
     } catch (error) {
@@ -41,7 +47,7 @@
     }
   }
 
-  // Load questions and answers on page mount
+  // Load questions and responses on page mount
   onMount(() => {
     fetchData();
   });
@@ -58,17 +64,17 @@
     fetchData(1, questionsPerPage); // Reset to page 1 when limit changes
   }
 
-  // Find latest answers for a given question ID
-  function getLatestAnswersForQuestion(questionId) {
+  // Get latest responses for a given question ID
+  function getLatestResponsesForQuestion(questionId) {
     if (!dataLoaded) return []; // Prevent errors if data isn't loaded yet
 
-    const result = latestAnswers.find(item => item.questionId === questionId);
-    return result ? result.answers : [];
+    const result = latestResponses.find(item => item.question_id === questionId);
+    return result ? result.responses : [];
   }
 </script>
 
 <main>
-  <h1>GDPR Questions & Answers</h1>
+  <h1>GDPR Questions & Responses</h1>
 
   <!-- Show loading message while data is being fetched -->
   {#if !dataLoaded}
@@ -85,23 +91,21 @@
         <option value="50">50</option>
       </select>
     </div>
-
     <ul>
       {#each questions as question}
         <li>
           <div>
-            <h3>{question.text}</h3>
-            <p><strong>Latest Answers:</strong></p>
+            <h2>{question.text}</h2>
             <ul>
-              {#each getLatestAnswersForQuestion(question.id) as answer}
+              {#each getLatestResponsesForQuestion(question.question_id) as response}
                 <li>
-                  <p><strong>Model:</strong> {answer.model_name}</p>
-                  <p><strong>Text:</strong> {answer.final_text}</p>
-                  <p><strong>Status:</strong> {answer.status}</p>
+                  <p><strong>Model:</strong> {response.model}</p>
+                  <p><strong>Text:</strong> {response.response_text}</p>
+                  <p><strong>Status:</strong> {response.status}</p>
                 </li>
               {/each}
             </ul>
-            <button on:click={() => goToQuestion(question.id)}>View Question</button>
+            <button on:click={() => goToQuestion(question.question_id)}>View Question</button>
           </div>
         </li>
       {/each}

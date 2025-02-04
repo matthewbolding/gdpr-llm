@@ -15,8 +15,8 @@ CREATE TABLE responses (
     FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
 
-CREATE TABLE duration (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE durations (
+    duration_id INT AUTO_INCREMENT PRIMARY KEY,
     question_id INT NOT NULL,
     hours_spent FLOAT NOT NULL DEFAULT 0,  -- Tracks hours spent editing
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Auto-timestamped
@@ -31,20 +31,20 @@ AFTER INSERT ON questions
 FOR EACH ROW
 BEGIN
     INSERT INTO responses (question_id, model, response_text, status)
-    VALUES (NEW.question_id, 'human', 'Human-generated response...', 'not started');
+    VALUES (NEW.question_id, 'Human', 'Human-generated response...', 'not started');
 END;
 //
 
 DELIMITER ;
 
--- Trigger: after_question_insert_duration
+-- Trigger: after_question_insert_durations
 DELIMITER //
 
-CREATE TRIGGER after_question_insert_duration
+CREATE TRIGGER after_question_insert_durations
 AFTER INSERT ON questions
 FOR EACH ROW
 BEGIN
-    INSERT INTO duration (question_id, hours_spent)
+    INSERT INTO durations (question_id, hours_spent)
     VALUES (NEW.question_id, 0);
 END;
 //
@@ -54,5 +54,5 @@ DELIMITER ;
 -- Index: idx_responses_question_id
 CREATE INDEX idx_responses_question_id ON responses(question_id);
 
--- Index: idx_duration_question_id
-CREATE INDEX idx_duration_question_id ON duration(question_id);
+-- Index: idx_durations_question_id
+CREATE INDEX idx_durations_question_id ON durations(question_id);

@@ -47,220 +47,203 @@ db.connect((err) => {
 });
 
 // API Endpoints
+app.get('/api/question', async (req, res) => {
+  const questionId = parseInt(req.query.questionId, 10);
 
-// Get list of questions with pagination
+  if (isNaN(questionId) || questionId < 1) {
+    return res.status(400).json({ message: 'Invalid question ID' });
+  }
+
+  try {
+    console.log(`[GET] /api/question - Fetching question ID: ${questionId}`);
+
+    // Fetch the question
+    const [rows] = await db.promise().query(
+      'SELECT * FROM questions WHERE question_id = ? LIMIT 1',
+      [questionId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    res.json({ question: rows[0] });
+
+  } catch (err) {
+    console.error(`[ERROR] Fetching question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 app.get('/api/questions', async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);  // Ensure page is at least 1
+  const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1); // Ensure limit is at least 1
   const offset = (page - 1) * limit;
 
   try {
-    console.log(`Fetching questions for page ${page} with limit ${limit}`);
-    const [results] = await db.promise().query('SELECT * FROM questions LIMIT ? OFFSET ?', [limit, offset]);
-    const [[{ total }]] = await db.promise().query('SELECT COUNT(*) AS total FROM questions');
+    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit})`);
+
+    // Fetch paginated questions + total count in one query
+    const query = `
+      SELECT q.*, (SELECT COUNT(*) FROM questions) AS total_count
+      FROM questions q
+      ORDER BY q.question_id
+      LIMIT ? OFFSET ?;
+    `;
+
+    const [rows] = await db.promise().query(query, [limit, offset]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No questions found' });
+    }
+
+    // Extract total count from the first row
+    const total = rows.length > 0 ? rows[0].total_count : 0;
     const totalPages = Math.ceil(total / limit);
 
     res.json({
-      questions: results,
+      questions: rows.map(({ total_count, ...q }) => q), // Remove total_count from response
       total,
       totalPages,
       currentPage: page
     });
+
   } catch (err) {
-    console.error('Error fetching questions:', err);
-    res.status(500).send('Internal Server Error');
+    console.error(`[ERROR] Fetching questions: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// Get list of questions with pagination
-app.get('/api/question', async (req, res) => {
-  const questionId = parseInt(req.query.questionId, 10)
+app.get('/api/responses', async (req, res) => {
+  const questionId = parseInt(req.query.questionId, 10);
+
+  if (isNaN(questionId) || questionId < 1) {
+    return res.status(400).json({ message: 'Invalid question ID' });
+  }
 
   try {
-    console.log(`Fetching question with ID ${questionId}`);
-    const [result] = await db.promise().query('SELECT * FROM questions WHERE id = ?', [questionId]);
+    console.log(`[GET] /api/responses - Fetching latest responses for question ID: ${questionId}`);
 
-    res.json({
-      question: result
-    });
+    // Query to fetch only the most recent response per model
+    const query = `
+      SELECT r.* 
+      FROM responses r
+      INNER JOIN (
+          SELECT model, MAX(timestamp) AS latest_timestamp
+          FROM responses
+          WHERE question_id = ?
+          GROUP BY model
+      ) latest_responses
+      ON r.model = latest_responses.model AND r.timestamp = latest_responses.latest_timestamp
+      WHERE r.question_id = ?
+      ORDER BY r.model ASC;
+    `;
+
+    const [rows] = await db.promise().query(query, [questionId, questionId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No responses found for this question' });
+    }
+
+    res.json({ responses: rows });
+
   } catch (err) {
-    console.error('Error fetching questions:', err);
-    res.status(500).send('Internal Server Error');
+    console.error(`[ERROR] Fetching responses for question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// Call stored procedure to get latest answers with pagination
-app.get('/api/latest-answers', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const offset = (page - 1) * limit;
+app.post('/api/response', async (req, res) => {
+  const { questionId, model, responseText, status } = req.body;
 
-  console.log(`Fetching latest answers for page ${page} with limit ${limit}`);
+  // Validate required fields
+  if (!questionId || !model || !responseText || !status) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
 
-  // Get total number of questions for accurate pagination
-  db.query('SELECT COUNT(*) AS total FROM questions', (err, totalResult) => {
-    if (err) {
-      console.error('Error fetching total question count:', err);
-      res.status(500).send('Internal Server Error');
-      return;
-    }
+  // Enforce allowed values for status
+  const allowedStatuses = ["in progress", "complete"];
+  if (!allowedStatuses.includes(status.toLowerCase())) {
+    return res.status(400).json({ message: 'Invalid status. Allowed values: in progress, complete' });
+  }
 
-    const totalQuestions = totalResult[0].total;
-    const totalPages = Math.ceil(totalQuestions / limit);
+  try {
+    console.log(`[POST] /api/response - Modifying response for question ID: ${questionId}, model: ${model}`);
 
-    // Fetch question IDs for the current page
-    db.query('SELECT id FROM questions LIMIT ? OFFSET ?', [limit, offset], (err, questions) => {
-      if (err) {
-        console.error('Error fetching question IDs:', err);
-        res.status(500).send('Internal Server Error');
-        return;
-      }
+    // Insert new response as a modification (new entry)
+    const query = `
+      INSERT INTO responses (question_id, model, response_text, status)
+      VALUES (?, ?, ?, ?);
+    `;
 
-      const questionIds = questions.map((q) => q.id);
-      const results = [];
+    await db.promise().query(query, [questionId, model, responseText, status]);
 
-      const fetchAnswers = questionIds.map((questionId) => {
-        return new Promise((resolve, reject) => {
-          db.query('CALL GetLatestAnswersByQuestion(?)', [questionId], (err, result) => {
-            if (err) {
-              console.error(`Error fetching answers for question ID ${questionId}:`, err);
-              return reject(err);
-            }
-            resolve({ questionId, answers: result[0] });
-          });
-        });
-      });
-
-      Promise.all(fetchAnswers)
-        .then((allResults) => {
-          res.json({
-            results: allResults,
-            total: totalQuestions,
-            currentPage: page,
-            totalPages
-          });
-        })
-        .catch((err) => {
-          console.error('Error fetching latest answers:', err);
-          res.status(500).send('Internal Server Error');
-        });
-    });
-  });
+    res.status(201).json({ message: 'Response modified successfully' });
+  } catch (err) {
+    console.error(`[ERROR] Modifying response: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 });
 
-// Call stored procedure to get latest answers for a specific question
-app.get('/api/question-info', (req, res) => {
-  const questionId = parseInt(req.query.questionId);
-  console.log(`Fetching latest answers for question ID: ${questionId}`);
+app.get('/api/duration', async (req, res) => {
+  const questionId = parseInt(req.query.questionId, 10);
 
-  db.query('CALL GetLatestAnswersByQuestion(?)', [questionId], (err, result) => {
-    if (err) {
-      console.error(`Error fetching answers for question ID ${questionId}:`, err);
-      res.status(500).send('Internal Server Error');
-      return;
+  if (isNaN(questionId) || questionId < 1) {
+    return res.status(400).json({ message: 'Invalid question ID' });
+  }
+
+  try {
+    console.log(`[GET] /api/duration - Fetching latest duration for question ID: ${questionId}`);
+
+    const query = `
+      SELECT hours_spent, timestamp
+      FROM duration
+      WHERE question_id = ?
+      ORDER BY timestamp DESC
+      LIMIT 1;
+    `;
+
+    const [rows] = await db.promise().query(query, [questionId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No duration found for this question' });
     }
 
-    res.json({
-      questionId,
-      answers: result[0]
-    });
-  });
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error(`[ERROR] Fetching duration: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 });
 
-// Post a new question
-app.post('/api/questions', (req, res) => {
-  const { text } = req.body;
-  console.log(`Adding a new question: ${text}`);
+app.post('/api/duration', async (req, res) => {
+  const questionId = parseInt(req.query.questionId, 10);
+  const hoursSpent = parseInt(req.query.hoursSpent, 10);
 
-  db.query('INSERT INTO questions (text) VALUES (?)', [text], (err, result) => {
-    if (err) {
-      console.error('Error adding question:', err);
-      res.status(500).send('Internal Server Error');
-      return;
-    }
-    console.log('Question added successfully:', result);
-    res.send({ message: 'Question added successfully', questionId: result.insertId });
-  });
+  if (!questionId || isNaN(hoursSpent) || hoursSpent < 0) {
+    return res.status(400).json({ message: 'Invalid question ID or hours spent' });
+  }
+
+  try {
+    console.log(`[POST] /api/duration - Adding duration for question ID: ${questionId}, hours spent: ${hoursSpent}`);
+
+    const query = `
+      INSERT INTO duration (question_id, hours_spent)
+      VALUES (?, ?);
+    `;
+
+    await db.promise().query(query, [questionId, hoursSpent]);
+
+    res.status(201).json({ message: 'Duration added successfully' });
+  } catch (err) {
+    console.error(`[ERROR] Adding duration: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 });
 
-// Save a new answer using query parameters
-app.post('/api/answers', (req, res) => {
-  const questionId = req.query.question_id;
-  const { modelName, generatedText } = req.body;
-
-  console.log(`Saving answer for question ID: ${questionId}, Model: ${modelName}`);
-  db.query(
-    'INSERT INTO answers (question_id, model_name, generated_text, timestamp) VALUES (?, ?, ?, NOW())',
-    [questionId, modelName, generatedText],
-    (err, result) => {
-      if (err) {
-        console.error('Error saving answer:', err);
-        res.status(500).send('Internal Server Error');
-        return;
-      }
-      console.log('Answer saved successfully:', result);
-      res.send('Answer saved successfully');
-    }
-  );
-});
-
-// Save user edits for an answer using query parameters
-app.post('/api/edits', (req, res) => {
-  const answerId = req.query.answer_id;
-  const { userId, modifiedText, status } = req.body;
-
-  console.log(`Saving edit for answer ID: ${answerId}, User ID: ${userId}, Status: ${status}`);
-  db.query(
-    'INSERT INTO edits (answer_id, user_id, modified_text, status, timestamp) VALUES (?, ?, ?, ?, NOW())',
-    [answerId, userId, modifiedText, status],
-    (err, result) => {
-      if (err) {
-        console.error('Error saving edit:', err);
-        res.status(500).send('Internal Server Error');
-        return;
-      }
-      console.log('Edit saved successfully:', result);
-      res.send('Edit saved successfully');
-    }
-  );
-});
 
 // Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
-
-// Frontend (Svelte)
-// 1. Initialize Svelte project: `npx degit sveltejs/template svelte-app`
-// 2. Create the following structure:
-// - src/routes/
-//     - index.svelte (main page)
-//     - [id].svelte (individual question page)
-// - Use Fetch API to call backend endpoints.
-
-// Database Schema (MySQL)
-// Table: questions
-// Columns: id (PK), text (TEXT)
-
-// Table: answers
-// Columns: id (PK), question_id (FK), model_name (VARCHAR), generated_text (TEXT), timestamp (DATETIME)
-
-// Table: edits
-// Columns: id (PK), answer_id (FK), user_id (INT), modified_text (TEXT), status ENUM('not started', 'in progress', 'complete'), timestamp (DATETIME)
-
-// Updated schema to add status tracking to edits table.
-
-// Run MySQL commands to create the database and tables. Adjust scripts based on your needs.
-
-// How to run locally:
-// 1. Install dependencies: `npm install express body-parser mysql2`
-// 2. Create a `db_config.json` file in the project root with your database credentials.
-//    Example:
-//    {
-//      "host": "localhost",
-//      "user": "your_username",
-//      "password": "your_password",
-//      "database": "llm_ground_truth"
-//    }
-// 3. Start backend: `node server.js`
-// 4. Use `npm run dev` in the Svelte frontend to run the app.
