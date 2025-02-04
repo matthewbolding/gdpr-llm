@@ -238,8 +238,8 @@
                 ></textarea>
 
                 <div class="button-container">
-                  <button class="save-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "complete")}>Save and Finish</button>
-                  <button class="save-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "in progress")}>Save for Later</button>
+                  <button class="save-finish-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "complete")}>Save and Finish</button>
+                  <button class="save-later-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "in progress")}>Save for Later</button>
                   <button class="reset-btn" on:click={() => resetChanges(answer.response_id)}>Reset</button>
                 </div>
               </div>
@@ -288,6 +288,30 @@
     border: 1px solid #ddd;
     border-radius: 5px;
     background-color: #f9f9f9;
+  }
+
+  .save-finish-btn, .save-later-btn, .reset-btn, .home-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+
+  .save-finish-btn {
+    background-color: #59ac4b;
+  }
+
+  .save-later-btn {
+    background-color: #84a3ff;
+  }
+
+  .reset-btn {
+    background-color: #ffca80;
+  }
+
+  .home-btn {
+    background-color: #007BFF;
   }
 
   textarea {

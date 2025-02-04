@@ -71,6 +71,10 @@
     const result = latestResponses.find(item => item.question_id === questionId);
     return result ? result.responses : [];
   }
+
+  const capitalize = (str, lower = false) =>
+    (lower ? str.toLowerCase() : str).replace(/(?:^|\s|["'([{])+\S/g, match => match.toUpperCase());
+  ;
 </script>
 
 <main>
@@ -101,7 +105,7 @@
                 <li>
                   <p><strong>Model:</strong> {response.model}</p>
                   <p><strong>Text:</strong> {response.response_text}</p>
-                  <p><strong>Status:</strong> {response.status}</p>
+                  <p><strong>Status:</strong> {capitalize(response.status)}</p>
                 </li>
               {/each}
             </ul>
