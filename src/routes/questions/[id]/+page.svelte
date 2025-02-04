@@ -8,19 +8,30 @@
 
   let question = null;
   let modifiedTexts = {}; // Stores user-modified response text
+
+  let hoursSpentText = "";
+  let modifiedHoursSpent = ""; // Input field for the number of hours spend
+
+  let ratingText = "";
+  let modifiedRating = ""; // Stores the rating input field
+
   let unsavedChanges = false;
   let loading = true; // Tracks loading state
-
-  let hoursWorked = ""; // Input field for the number of hours worked
-  let latestHoursWorked = 0; // Stores the most recent saved hours
-
-  let ratingText = ""; // Stores the rating input field
-  let latestRating = ""; // Stores the most recent saved rating
 
   // Handle text changes in textarea
   function updateText(responseId, event) {
     modifiedTexts[responseId] = event.target.value;
     modifiedTexts = Object.assign({}, modifiedTexts); // Ensure reactivity
+    unsavedChanges = true;
+  }
+
+  function updateHoursSpent(event) {
+    modifiedHoursWorked = event.target.value;
+    unsavedChanges = true;
+  }
+
+  function updateRating(event) {
+    modifiedRating = event.target.value;
     unsavedChanges = true;
   }
 
@@ -89,7 +100,7 @@
       question.answers = responsesData.responses || [];
 
       // Fetch the latest recorded hours for this question
-      await fetchHoursWorked();
+      await fetchHoursSpent();
       await fetchRating();
 
       // Initialize modifiedTexts for each answer
@@ -107,21 +118,21 @@
   }
 
   // Fetch the most recent recorded hours for this question
-  async function fetchHoursWorked() {
+  async function fetchHoursSpent() {
     try {
       const res = await fetch(`http://localhost:3000/api/duration?questionId=${id}`);
       if (!res.ok) throw new Error("No previous duration found");
 
       const data = await res.json();
-      latestHoursWorked = data.hours_spent;
+      hoursSpentText = data.hours_spent;
     } catch (error) {
       console.error("Error fetching hours worked:", error);
-      latestHoursWorked = null; // No previous record
+      hoursSpentText = ""; // No previous record
     }
   }
 
   // Save the entered number of hours worked
-  async function saveHoursWorked() {
+  async function saveHoursSpent() {
     const hours = parseFloat(hoursWorked);
     if (isNaN(hours) || hours <= 0) {
       alert("Please enter a valid number of hours.");
@@ -138,7 +149,7 @@
       });
 
       hoursWorked = ""; // Clear the input field
-      await fetchHoursWorked(); // Refresh displayed hours
+      await fetchHoursSpent(); // Refresh displayed hours
       alert("Hours worked saved successfully!");
     } catch (error) {
       console.error("Error saving hours worked:", error);
@@ -153,11 +164,9 @@
       if (!res.ok) throw new Error("No previous rating found");
 
       const data = await res.json();
-      latestRating = data.text;
       ratingText = data.text;
     } catch (error) {
       console.error("Error fetching rating:", error);
-      latestRating = "";
       ratingText = "";
     }
   }
@@ -211,16 +220,14 @@
         <!-- Duration Entry -->
         <div class="metadata-box">
           <h3>Track Your Time</h3>
-          <p>Latest recorded time: {latestHoursWorked !== null ? `${latestHoursWorked} hours` : "No record yet"}</p>
-          <input type="number" bind:value={hoursWorked} min="0.1" step="0.1" placeholder="Enter hours worked" />
-          <button class="save-btn" on:click={saveHoursWorked}>Save Hours</button>
+          <textarea bind:value={hoursSpentText} on:input={(event) => updateHoursSpent(event)}></textarea>
+          <button class="save-btn" on:click={saveHoursSpent}>Save Hours</button>
         </div>
 
         <!-- Rating Entry -->
         <div class="metadata-box">
           <h3>Rating</h3>
-          <p>Latest rating: {latestRating || "No rating yet"}</p>
-          <textarea bind:value={ratingText}></textarea>
+          <textarea bind:value={ratingText} on:input={(event) => updateRating(event)}></textarea>
           <button class="save-btn" on:click={saveRating}>Save Rating</button>
         </div>
       </div>

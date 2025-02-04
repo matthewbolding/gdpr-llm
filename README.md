@@ -2,8 +2,7 @@
 
 To Do:
 - Selector not displaying current number of items per page.
-
-# sv
+- Ranking or preference ranking dataset? (This will form the basis of v2.)
 
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
