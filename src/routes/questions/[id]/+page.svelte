@@ -12,7 +12,56 @@
   let loading = true; // Tracks loading state
 
   let hoursWorked = ""; // Input field for the number of hours worked
-  let latestHoursWorked = null; // Stores the most recent saved hours
+  let latestHoursWorked = 0; // Stores the most recent saved hours
+
+  let ratingText = ""; // Stores the rating input field
+  let latestRating = ""; // Stores the most recent saved rating
+
+  // Handle text changes in textarea
+  function updateText(responseId, event) {
+    modifiedTexts[responseId] = event.target.value;
+    modifiedTexts = Object.assign({}, modifiedTexts); // Ensure reactivity
+    unsavedChanges = true;
+  }
+
+  // Save changes for a specific response
+  async function saveChanges(questionId, responseId, model, status) {
+    try {
+      const updatedText = modifiedTexts[responseId];
+
+      console.log(`[POST] Saving edits for response ID ${responseId}`);
+
+      await fetch(`http://localhost:3000/api/response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: questionId,
+          model: model,
+          responseText: updatedText,
+          status: status
+        })
+      });
+
+      unsavedChanges = false;
+      fetchQuestion();
+      alert('Changes saved!');
+    } catch (error) {
+      console.error('Error saving edits:', error);
+      alert('Failed to save changes.');
+    }
+  }
+
+  // Reset text to its original value
+  function resetChanges(responseId) {
+    if (!question || !question.answers) return;
+
+    const answer = question.answers.find(a => a.response_id === responseId);
+    if (answer) {
+      modifiedTexts = Object.assign({}, modifiedTexts, { [responseId]: answer.response_text });
+    }
+
+    unsavedChanges = false;
+  }
 
   // Fetch question details
   async function fetchQuestion() {
@@ -41,6 +90,7 @@
 
       // Fetch the latest recorded hours for this question
       await fetchHoursWorked();
+      await fetchRating();
 
       // Initialize modifiedTexts for each answer
       modifiedTexts = {};
@@ -96,50 +146,44 @@
     }
   }
 
-  // Handle text changes in textarea
-  function updateText(responseId, event) {
-    modifiedTexts[responseId] = event.target.value;
-    modifiedTexts = Object.assign({}, modifiedTexts); // Ensure reactivity
-    unsavedChanges = true;
+  // Fetch the most recent rating for this question
+  async function fetchRating() {
+    try {
+      const res = await fetch(`http://localhost:3000/api/rating?questionId=${id}`);
+      if (!res.ok) throw new Error("No previous rating found");
+
+      const data = await res.json();
+      latestRating = data.text;
+      ratingText = data.text;
+    } catch (error) {
+      console.error("Error fetching rating:", error);
+      latestRating = "";
+      ratingText = "";
+    }
   }
 
-  // Save changes for a specific response
-  async function saveChanges(questionId, responseId, model, status) {
+  // Save rating text
+  async function saveRating() {
+    if (!ratingText.trim()) {
+      alert("Rating text cannot be empty.");
+      return;
+    }
+
     try {
-      const updatedText = modifiedTexts[responseId];
+      console.log(`[POST] Saving rating for question ID ${id}`);
 
-      console.log(`[POST] Saving edits for response ID ${responseId}`);
-
-      await fetch(`http://localhost:3000/api/response`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: questionId,
-          model: model,
-          responseText: updatedText,
-          status: status
-        })
+      await fetch(`http://localhost:3000/api/rating`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: id, text: ratingText })
       });
 
-      unsavedChanges = false;
-      fetchQuestion();
-      alert('Changes saved!');
+      await fetchRating(); // Refresh displayed rating
+      alert("Rating saved successfully!");
     } catch (error) {
-      console.error('Error saving edits:', error);
-      alert('Failed to save changes.');
+      console.error("Error saving rating:", error);
+      alert("Failed to save rating.");
     }
-  }
-
-  // Reset text to its original value
-  function resetChanges(responseId) {
-    if (!question || !question.answers) return;
-
-    const answer = question.answers.find(a => a.response_id === responseId);
-    if (answer) {
-      modifiedTexts = Object.assign({}, modifiedTexts, { [responseId]: answer.response_text });
-    }
-
-    unsavedChanges = false;
   }
 
   const capitalize = (str, lower = false) =>
@@ -149,15 +193,6 @@
   // Navigate back to home page
   function goToHomePage() {
     goto('/');
-  }
-
-  // Warn users before leaving with unsaved changes
-  if (typeof window !== 'undefined') {
-    window.onbeforeunload = () => {
-      if (unsavedChanges) {
-        return 'You have unsaved changes!';
-      }
-    };
   }
 
   onMount(() => {
@@ -172,12 +207,22 @@
     {#if question}
       <h1 class="title">{question.text}</h1>
 
-      <!-- Hours worked submission -->
-      <div class="hours-container">
-        <h3>Track Your Time</h3>
-        <p>Latest recorded time: {latestHoursWorked !== null ? `${latestHoursWorked} hours` : "No record yet"}</p>
-        <input type="number" bind:value={hoursWorked} min="0.1" step="0.1" placeholder="Enter hours worked" />
-        <button class="save-hours-btn" on:click={saveHoursWorked}>Save Hours</button>
+      <div class="metadata-grid">
+        <!-- Duration Entry -->
+        <div class="metadata-box">
+          <h3>Track Your Time</h3>
+          <p>Latest recorded time: {latestHoursWorked !== null ? `${latestHoursWorked} hours` : "No record yet"}</p>
+          <input type="number" bind:value={hoursWorked} min="0.1" step="0.1" placeholder="Enter hours worked" />
+          <button class="save-btn" on:click={saveHoursWorked}>Save Hours</button>
+        </div>
+
+        <!-- Rating Entry -->
+        <div class="metadata-box">
+          <h3>Rating</h3>
+          <p>Latest rating: {latestRating || "No rating yet"}</p>
+          <textarea bind:value={ratingText}></textarea>
+          <button class="save-btn" on:click={saveRating}>Save Rating</button>
+        </div>
       </div>
 
       <div class="answer-container">
@@ -191,7 +236,7 @@
                   bind:value={modifiedTexts[answer.response_id]}
                   on:input={(event) => updateText(answer.response_id, event)}
                 ></textarea>
-                
+
                 <div class="button-container">
                   <button class="save-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "complete")}>Save and Finish</button>
                   <button class="save-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "in progress")}>Save for Later</button>
@@ -215,61 +260,29 @@
 </main>
 
 <style>
-  .title {
-    text-align: center;
-    margin-bottom: 1rem;
+  .metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    width: 100vw;
+    padding: 1rem;
   }
 
-  .answer-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .model-title {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-  }
-
-  .button-container {
-    margin-top: 0.5rem;
-    display: flex;
-    gap: 10px;
-  }
-
-  .save-btn, .reset-btn, .home-btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    background-color: #007BFF;
-    color: white;
-    cursor: pointer;
+  .metadata-box {
+    padding: 1.5rem;
+    border: 1px solid #ddd;
     border-radius: 5px;
+    background-color: #f9f9f9;
   }
 
-  .reset-btn {
-    background-color: #FF9900;
-  }
-
-  .home-btn {
-    background-color: #28A745;
-  }
-
-  .error-message, .loading {
-    text-align: center;
-    font-size: 1.2rem;
-  }
-
-  /* Creates a full-width 2-column grid layout */
   .answer-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Two equal columns */
-    gap: 1rem; /* Spacing between grid items */
-    width: 100vw; /* Full viewport width */
-    padding: 1rem; /* Prevents textboxes from touching screen edges */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    width: 100vw;
+    padding: 1rem;
   }
 
-  /* Ensures answer boxes are spaced out and readable */
   .answer-box {
     padding: 1.5rem;
     border: 1px solid #ddd;
@@ -277,21 +290,13 @@
     background-color: #f9f9f9;
   }
 
-  /* Makes sure the textarea has proper padding and doesn't touch edges */
   textarea {
     width: 100%;
-    height: 120px;
-    padding: 1rem; /* Adds padding inside the text area */
+    height: 80px;
+    padding: 1rem;
     border: 1px solid #ccc;
     border-radius: 5px;
     resize: vertical;
-    box-sizing: border-box; /* Ensures padding doesn't affect width */
-  }
-
-  /* Responsive layout for smaller screens */
-  @media (max-width: 768px) {
-    .answer-grid {
-      grid-template-columns: 1fr; /* Single column on smaller screens */
-    }
+    box-sizing: border-box;
   }
 </style>

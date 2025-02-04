@@ -238,6 +238,62 @@ app.post('/api/duration', async (req, res) => {
   }
 });
 
+app.get('/api/rating', async (req, res) => {
+  const questionId = parseInt(req.query.questionId, 10);
+
+  if (isNaN(questionId) || questionId < 1) {
+    return res.status(400).json({ message: 'Invalid question ID' });
+  }
+
+  try {
+    console.log(`[GET] Fetching rating for question ID: ${questionId}`);
+
+    const query = `
+      SELECT * FROM ratings
+      WHERE question_id = ?
+      ORDER BY timestamp DESC
+      LIMIT 1;
+    `;
+
+    const [rows] = await db.promise().query(query, [questionId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No rating found for this question' });
+    }
+
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error(`[ERROR] Fetching rating: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/rating', async (req, res) => {
+  const { questionId, text } = req.body;
+
+  if (!questionId || typeof text !== 'string' || text.trim() === '') {
+    return res.status(400).json({ message: 'Invalid question ID or empty text' });
+  }
+
+  try {
+    console.log(`[POST] Adding rating for question ID: ${questionId}`);
+
+    const query = `
+      INSERT INTO ratings (question_id, text)
+      VALUES (?, ?);
+    `;
+
+    await db.promise().query(query, [questionId, text]);
+
+    res.status(201).json({ message: 'Rating added successfully' });
+  } catch (err) {
+    console.error(`[ERROR] Adding rating: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}.`);

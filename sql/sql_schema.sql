@@ -23,6 +23,14 @@ CREATE TABLE durations (
     FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
 
+CREATE TABLE ratings (
+    rating_id INT AUTO_INCREMENT PRIMARY KEY,
+    question_id INT NOT NULL,
+    text TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
+);
+
 -- Trigger: after_question_insert
 DELIMITER //
 
@@ -50,6 +58,22 @@ END;
 //
 
 DELIMITER ;
+
+-- Trigger: after_question_insert_ratings
+DELIMITER //
+
+CREATE TRIGGER after_question_insert_ratings
+AFTER INSERT ON questions
+FOR EACH ROW
+BEGIN
+    INSERT INTO ratings (question_id, text)
+    VALUES (NEW.question_id, 'Question rating...');
+END;
+
+//
+
+DELIMITER ;
+
 
 -- Index: idx_responses_question_id
 CREATE INDEX idx_responses_question_id ON responses(question_id);

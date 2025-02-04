@@ -2,9 +2,6 @@
 
 To Do:
 - Selector not displaying current number of items per page.
-- Ability to rate a question (textbox).
-- Time spent on one question.
-- Saving and then resetting answers reverts incorrectly.
 
 # sv
 
