@@ -26,7 +26,7 @@ CREATE TABLE durations (
 -- Trigger: after_question_insert
 DELIMITER //
 
-CREATE TRIGGER after_question_insert
+CREATE TRIGGER after_question_insert_responses
 AFTER INSERT ON questions
 FOR EACH ROW
 BEGIN

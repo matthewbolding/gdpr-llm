@@ -11,6 +11,9 @@
   let unsavedChanges = false;
   let loading = true; // Tracks loading state
 
+  let hoursWorked = ""; // Input field for the number of hours worked
+  let latestHoursWorked = null; // Stores the most recent saved hours
+
   // Fetch question details
   async function fetchQuestion() {
     loading = true;
@@ -36,6 +39,9 @@
 
       question.answers = responsesData.responses || [];
 
+      // Fetch the latest recorded hours for this question
+      await fetchHoursWorked();
+
       // Initialize modifiedTexts for each answer
       modifiedTexts = {};
       for (const answer of question.answers) {
@@ -47,6 +53,46 @@
       console.error('Error fetching question or responses:', error);
     } finally {
       loading = false;
+    }
+  }
+
+  // Fetch the most recent recorded hours for this question
+  async function fetchHoursWorked() {
+    try {
+      const res = await fetch(`http://localhost:3000/api/duration?questionId=${id}`);
+      if (!res.ok) throw new Error("No previous duration found");
+
+      const data = await res.json();
+      latestHoursWorked = data.hours_spent;
+    } catch (error) {
+      console.error("Error fetching hours worked:", error);
+      latestHoursWorked = null; // No previous record
+    }
+  }
+
+  // Save the entered number of hours worked
+  async function saveHoursWorked() {
+    const hours = parseFloat(hoursWorked);
+    if (isNaN(hours) || hours <= 0) {
+      alert("Please enter a valid number of hours.");
+      return;
+    }
+
+    try {
+      console.log(`[POST] Saving ${hours} hours for question ID ${id}`);
+
+      await fetch(`http://localhost:3000/api/duration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: id, hoursSpent: hours })
+      });
+
+      hoursWorked = ""; // Clear the input field
+      await fetchHoursWorked(); // Refresh displayed hours
+      alert("Hours worked saved successfully!");
+    } catch (error) {
+      console.error("Error saving hours worked:", error);
+      alert("Failed to save hours.");
     }
   }
 
@@ -76,6 +122,7 @@
       });
 
       unsavedChanges = false;
+      fetchQuestion();
       alert('Changes saved!');
     } catch (error) {
       console.error('Error saving edits:', error);
@@ -124,6 +171,14 @@
   {:else}
     {#if question}
       <h1 class="title">{question.text}</h1>
+
+      <!-- Hours worked submission -->
+      <div class="hours-container">
+        <h3>Track Your Time</h3>
+        <p>Latest recorded time: {latestHoursWorked !== null ? `${latestHoursWorked} hours` : "No record yet"}</p>
+        <input type="number" bind:value={hoursWorked} min="0.1" step="0.1" placeholder="Enter hours worked" />
+        <button class="save-hours-btn" on:click={saveHoursWorked}>Save Hours</button>
+      </div>
 
       <div class="answer-container">
         {#if question.answers.length > 0}

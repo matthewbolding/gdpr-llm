@@ -187,7 +187,7 @@ app.post('/api/response', async (req, res) => {
 
 app.get('/api/duration', async (req, res) => {
   const questionId = parseInt(req.query.questionId, 10);
-
+  
   if (isNaN(questionId) || questionId < 1) {
     return res.status(400).json({ message: 'Invalid question ID' });
   }
@@ -197,7 +197,7 @@ app.get('/api/duration', async (req, res) => {
 
     const query = `
       SELECT hours_spent, timestamp
-      FROM duration
+      FROM durations
       WHERE question_id = ?
       ORDER BY timestamp DESC
       LIMIT 1;
@@ -218,20 +218,16 @@ app.get('/api/duration', async (req, res) => {
 });
 
 app.post('/api/duration', async (req, res) => {
-  const questionId = parseInt(req.query.questionId, 10);
-  const hoursSpent = parseInt(req.query.hoursSpent, 10);
+  const { questionId, hoursSpent } = req.body;
 
-  if (!questionId || isNaN(hoursSpent) || hoursSpent < 0) {
-    return res.status(400).json({ message: 'Invalid question ID or hours spent' });
+  if (!questionId || isNaN(hoursSpent) || hoursSpent <= 0) {
+    return res.status(400).json({ message: 'Invalid question ID or hours spent. Ensure questionId is a number and hoursSpent is greater than 0.' });
   }
 
   try {
-    console.log(`[POST] /api/duration - Adding duration for question ID: ${questionId}, hours spent: ${hoursSpent}`);
+    console.log(`[POST] Adding duration for question ID: ${questionId}, hours spent: ${hoursSpent}`);
 
-    const query = `
-      INSERT INTO duration (question_id, hours_spent)
-      VALUES (?, ?);
-    `;
+    const query = `INSERT INTO durations (question_id, hours_spent) VALUES (?, ?);`;
 
     await db.promise().query(query, [questionId, hoursSpent]);
 
@@ -242,8 +238,7 @@ app.post('/api/duration', async (req, res) => {
   }
 });
 
-
 // Start the server
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}.`);
 });
