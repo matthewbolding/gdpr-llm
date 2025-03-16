@@ -77,6 +77,32 @@ app.get('/api/questions', async (req, res) => {
   }
 });
 
+app.get('/api/question', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    console.log(`[GET] /api/question?question_id=${questionId} - Fetching question text`);
+    
+    const query = `SELECT question_text FROM questions WHERE question_id = ?`;
+    const [rows] = await db.query(query, [questionId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    res.json({
+      question_id: questionId,
+      question_text: rows[0].question_text
+    });
+  } catch (err) {
+    console.error(`[ERROR] Fetching question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 app.get('/api/generations', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
   if (isNaN(questionId)) {
@@ -120,8 +146,8 @@ app.get('/api/pairs', async (req, res) => {
     console.log(`[GET] /api/pairs?question_id=${questionId} - Fetching pairs`);
     
     const query = `
-      SELECT g1.generation_id AS gen_1_id, g1.generation_text AS gen_1_text, m1.model_name AS gen_1_model,
-             g2.generation_id AS gen_2_id, g2.generation_text AS gen_2_text, m2.model_name AS gen_2_model
+      SELECT g1.generation_id AS gen_1_id, g1.generation_text AS gen_1_text, m1.model_id AS gen_1_model_id,
+             g2.generation_id AS gen_2_id, g2.generation_text AS gen_2_text, m2.model_id AS gen_2_model_id
       FROM generations g1
       JOIN generations g2 ON g1.question_id = g2.question_id AND g1.generation_id < g2.generation_id
       JOIN models m1 ON g1.model_id = m1.model_id
@@ -146,6 +172,29 @@ app.get('/api/pairs', async (req, res) => {
   }
 });
 
+app.post('/api/rate', async (req, res) => {
+  const { question_id, gen_1_id, gen_2_id, usability, preference } = req.body;
+
+  if (!question_id || !gen_1_id || !gen_2_id || !usability) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  try {
+    console.log(`[POST] /api/rate - Saving rating for question ${question_id}, pair (${gen_1_id}, ${gen_2_id})`);
+
+    const query = `
+      INSERT INTO ratings (question_id, gen_1_id, gen_2_id, usability, preference)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE usability = VALUES(usability), preference = VALUES(preference);
+    `;
+    
+    await db.query(query, [question_id, gen_1_id, gen_2_id, usability, preference || null]);
+    res.status(200).json({ message: 'Rating submitted successfully' });
+  } catch (err) {
+    console.error(`[ERROR] Saving rating: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 // Start the server
 app.listen(port, () => {

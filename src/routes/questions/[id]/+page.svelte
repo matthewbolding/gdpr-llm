@@ -1,333 +1,207 @@
 <script>
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { tick } from 'svelte';
+	import { goto } from '$app/navigation';
 
-  $: id = $page.params.id;
+  let questionId;
+  let pairs = [];
+  let questionText;
+  let currentIndex = 0;
+  let dataLoaded = false;
 
-  let question = null;
-  let modifiedTexts = {}; // Stores user-modified response text
+  // Extract question_id from URL
+  $: questionId = $page.params.id;
 
-  let hoursSpentText = "";
-  let modifiedHoursSpent = ""; // Input field for the number of hours spend
+  // User's selection state
+  let user_selection = ''; // Stores user_selection selection
 
-  let ratingText = "";
-  let modifiedRating = ""; // Stores the rating input field
-
-  let unsavedChanges = false;
-  let loading = true; // Tracks loading state
-
-  // Handle text changes in textarea
-  function updateText(responseId, event) {
-    modifiedTexts[responseId] = event.target.value;
-    modifiedTexts = Object.assign({}, modifiedTexts); // Ensure reactivity
-    unsavedChanges = true;
-  }
-
-  function updateHoursSpent(event) {
-    modifiedHoursWorked = event.target.value;
-    unsavedChanges = true;
-  }
-
-  function updateRating(event) {
-    modifiedRating = event.target.value;
-    unsavedChanges = true;
-  }
-
-  // Save changes for a specific response
-  async function saveChanges(questionId, responseId, model, status) {
+  // Fetch pairs for the given question ID
+  // Fetch pairs and question text for the given question ID
+  async function fetchData() {
     try {
-      const updatedText = modifiedTexts[responseId];
+      console.log(`Fetching data for question_id=${questionId}`);
 
-      console.log(`[POST] Saving edits for response ID ${responseId}`);
-
-      await fetch(`http://localhost:3000/api/response`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: questionId,
-          model: model,
-          responseText: updatedText,
-          status: status
-        })
-      });
-
-      unsavedChanges = false;
-      fetchQuestion();
-      alert('Changes saved!');
-    } catch (error) {
-      console.error('Error saving edits:', error);
-      alert('Failed to save changes.');
-    }
-  }
-
-  // Reset text to its original value
-  function resetChanges(responseId) {
-    if (!question || !question.answers) return;
-
-    const answer = question.answers.find(a => a.response_id === responseId);
-    if (answer) {
-      modifiedTexts = Object.assign({}, modifiedTexts, { [responseId]: answer.response_text });
-    }
-
-    unsavedChanges = false;
-  }
-
-  // Fetch question details
-  async function fetchQuestion() {
-    loading = true;
-    try {
-      console.log(`[GET] Fetching question with ID: ${id}`);
-
-      const questionRes = await fetch(`http://localhost:3000/api/question?questionId=${id}`);
-      const questionData = await questionRes.json();
-
-      if (!questionData || !questionData.question) {
-        console.error("Error: Question not found.");
-        question = null;
-        return;
+      // Fetch question text
+      const questionResponse = await fetch(`http://localhost:3000/api/question?question_id=${questionId}`);
+      if (!questionResponse.ok) {
+        throw new Error(`Error fetching question text! Status: ${questionResponse.status}`);
       }
+      const questionData = await questionResponse.json();
+      questionText = questionData.question_text;
 
-      question = questionData.question;
-
-      // Fetch latest responses for this question
-      const responsesRes = await fetch(`http://localhost:3000/api/responses?questionId=${id}`);
-      const responsesData = await responsesRes.json();
-
-      console.log(`[GET] Responses for question ${id}:`, responsesData);
-
-      question.answers = responsesData.responses || [];
-
-      // Fetch the latest recorded hours for this question
-      await fetchHoursSpent();
-      await fetchRating();
-
-      // Initialize modifiedTexts for each answer
-      modifiedTexts = {};
-      for (const answer of question.answers) {
-        modifiedTexts[answer.response_id] = answer.response_text;
+      // Fetch pairs
+      const pairsResponse = await fetch(`http://localhost:3000/api/pairs?question_id=${questionId}`);
+      if (!pairsResponse.ok) {
+        throw new Error(`Error fetching pairs! Status: ${pairsResponse.status}`);
       }
+      const pairsData = await pairsResponse.json();
+      pairs = pairsData.pairs;
 
-      await tick();
+      dataLoaded = true;
     } catch (error) {
-      console.error('Error fetching question or responses:', error);
-    } finally {
-      loading = false;
+      console.error('Error fetching data:', error);
+    }
+  } 
+
+  // Move between pairs
+  function previousPair() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      user_selection = '';
     }
   }
 
-  // Fetch the most recent recorded hours for this question
-  async function fetchHoursSpent() {
-    try {
-      const res = await fetch(`http://localhost:3000/api/duration?questionId=${id}`);
-      if (!res.ok) throw new Error("No previous duration found");
-
-      const data = await res.json();
-      hoursSpentText = data.hours_spent;
-    } catch (error) {
-      console.error("Error fetching hours worked:", error);
-      hoursSpentText = ""; // No previous record
+  function nextPair() {
+    if (currentIndex < pairs.length - 1) {
+      currentIndex++;
+      user_selection = '';
     }
   }
 
-  // Save the entered number of hours worked
-  async function saveHoursSpent() {
-    const hours = parseFloat(hoursWorked);
-    if (isNaN(hours) || hours <= 0) {
-      alert("Please enter a valid number of hours.");
-      return;
-    }
-
-    try {
-      console.log(`[POST] Saving ${hours} hours for question ID ${id}`);
-
-      await fetch(`http://localhost:3000/api/duration`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: id, hoursSpent: hours })
-      });
-
-      hoursWorked = ""; // Clear the input field
-      await fetchHoursSpent(); // Refresh displayed hours
-      alert("Hours worked saved successfully!");
-    } catch (error) {
-      console.error("Error saving hours worked:", error);
-      alert("Failed to save hours.");
-    }
-  }
-
-  // Fetch the most recent rating for this question
-  async function fetchRating() {
-    try {
-      const res = await fetch(`http://localhost:3000/api/rating?questionId=${id}`);
-      if (!res.ok) throw new Error("No previous rating found");
-
-      const data = await res.json();
-      ratingText = data.text;
-    } catch (error) {
-      console.error("Error fetching rating:", error);
-      ratingText = "";
-    }
-  }
-
-  // Save rating text
-  async function saveRating() {
-    if (!ratingText.trim()) {
-      alert("Rating text cannot be empty.");
-      return;
-    }
-
-    try {
-      console.log(`[POST] Saving rating for question ID ${id}`);
-
-      await fetch(`http://localhost:3000/api/rating`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: id, text: ratingText })
-      });
-
-      await fetchRating(); // Refresh displayed rating
-      alert("Rating saved successfully!");
-    } catch (error) {
-      console.error("Error saving rating:", error);
-      alert("Failed to save rating.");
-    }
-  }
-
-  const capitalize = (str, lower = false) =>
-    (lower ? str.toLowerCase() : str).replace(/(?:^|\s|["'([{])+\S/g, match => match.toUpperCase());
-  ;
-
-  // Navigate back to home page
-  function goToHomePage() {
+  function goHome() {
     goto('/');
   }
 
+  function goToWriteIn() {
+    // goto('/question/[id]/writein')
+  }
+
+  // Load pairs on mount
   onMount(() => {
-    fetchQuestion();
+    fetchData();
   });
 </script>
 
 <main>
-  {#if loading}
-    <p class="loading">Loading question...</p>
+  {#if !dataLoaded}
+    <p>Loading data...</p>
   {:else}
-    {#if question}
-      <h1 class="title">{question.text}</h1>
+    <h1>{questionId}: {questionText}</h1>
 
-      <div class="metadata-grid">
-        <!-- Duration Entry -->
-        <div class="metadata-box">
-          <h3>Track Your Time</h3>
-          <textarea bind:value={hoursSpentText} on:input={(event) => updateHoursSpent(event)}></textarea>
-          <button class="save-btn" on:click={saveHoursSpent}>Save Hours</button>
+    {#if pairs.length > 0}
+      <div class="container">
+        
+        <!-- Generator 1 -->
+        <div class="generation">
+          <h3>Generator {pairs[currentIndex].gen_1_model_id}</h3>
+          <p>{pairs[currentIndex].gen_1_text}</p>
         </div>
 
-        <!-- Rating Entry -->
-        <div class="metadata-box">
-          <h3>Rating</h3>
-          <textarea bind:value={ratingText} on:input={(event) => updateRating(event)}></textarea>
-          <button class="save-btn" on:click={saveRating}>Save Rating</button>
+        <!-- Generator 2 -->
+        <div class="generation">
+          <h3>Generator {pairs[currentIndex].gen_2_model_id}</h3>
+          <p>{pairs[currentIndex].gen_2_text}</p>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+          <h3>Instructions</h3>
+          <p>Make only one selection as to the usability or unusability of a generator's output. You may change your selection at anytime. Your most recent selection is indicated below.</p>
+
+          <!-- Usability Selection -->
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="both_unusable"/>
+            Both Generator {pairs[currentIndex].gen_1_model_id} and Generator {pairs[currentIndex].gen_2_model_id} are <span class="unusable">unusable</span> <em>as they are</em>.
+          </label>
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="gen1_usable"/>
+            Generator {pairs[currentIndex].gen_1_model_id} is <span class="usable">usable</span> and Generator {pairs[currentIndex].gen_2_model_id} is <span class="unusable">unusable</span> <em>as they are</em>.
+          </label>
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="gen2_usable"/>
+            Generator {pairs[currentIndex].gen_1_model_id} is <span class="unusable">unusable</span> and Generator {pairs[currentIndex].gen_2_model_id} <span class="usable">usable</span> <em>as they are</em>.
+          </label>
+
+          <p>If both Generator 1 and Generator 2 are <span class="usable">usable</span>  <em>as they are</em>, which one do you prefer?</p>
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="gen1_pref"/>
+            Generator {pairs[currentIndex].gen_1_model_id}
+          </label>
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="gen2_pref"/>
+            Generator {pairs[currentIndex].gen_2_model_id}
+          </label>
+          <label>
+            <input type="radio" name="selection" bind:group={user_selection} value="equal"/>
+            Both Equal
+          </label>
+
+          <button class="submit-btn">Submit</button>
         </div>
       </div>
 
-      <div class="answer-container">
-        {#if question.answers.length > 0}
-          <div class="answer-grid">
-            {#each question.answers as answer}
-              <div class="answer-box">
-                <h3 class="model-title">{answer.model}</h3>
-                <p class="model">{capitalize(answer.status)}</p>
-                <textarea
-                  bind:value={modifiedTexts[answer.response_id]}
-                  on:input={(event) => updateText(answer.response_id, event)}
-                ></textarea>
-
-                <div class="button-container">
-                  <button class="save-finish-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "complete")}>Save and Finish</button>
-                  <button class="save-later-btn" on:click={() => saveChanges(id, answer.response_id, answer.model, "in progress")}>Save for Later</button>
-                  <button class="reset-btn" on:click={() => resetChanges(answer.response_id)}>Reset</button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <p class="no-answers">No responses available.</p>
-        {/if}
+      <!-- Navigation Buttons -->
+      <div class="navigation">
+        <button on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
+        <button on:click={goHome}>Home</button>
+        <button on:click={goToWriteIn} disabled>Write-In</button>
+        <button on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
       </div>
 
-      <div class="nav-container">
-        <button class="home-btn" on:click={goToHomePage}>Back to Home</button>
-      </div>
     {:else}
-      <p class="error-message">Question not found.</p>
+      <p>No pairs found for this question.</p>
     {/if}
   {/if}
 </main>
 
 <style>
-  .metadata-grid {
+  .container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    width: 100vw;
-    padding: 1rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+    text-align: left;
+    height: calc(100vh - 200px); /* Adjust based on header/footer size */
   }
 
-  .metadata-box {
-    padding: 1.5rem;
+  .generation {
+    padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    background-color: #f9f9f9;
+    height: 95%;
+    overflow-y: auto;
   }
 
-  .answer-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    width: 100vw;
-    padding: 1rem;
-  }
-
-  .answer-box {
-    padding: 1.5rem;
-    border: 1px solid #ddd;
+  .instructions {
+    padding: 10px;
     border-radius: 5px;
-    background-color: #f9f9f9;
+    height: 95%;
+    overflow-y: auto;
   }
 
-  .save-finish-btn, .save-later-btn, .reset-btn, .home-btn {
-    padding: 0.5rem 1rem;
-    border: none;
+  label {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .usable {
+    color: green;
+  }
+
+  .unusable {
+    color: red;
+  }
+
+  .submit-btn {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    background-color: #007BFF;
     color: white;
+    border: none;
     cursor: pointer;
     border-radius: 5px;
+    align-content: center;
   }
 
-  .save-finish-btn {
-    background-color: #59ac4b;
+  .navigation {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
   }
 
-  .save-later-btn {
-    background-color: #84a3ff;
-  }
-
-  .reset-btn {
-    background-color: #ffca80;
-  }
-
-  .home-btn {
-    background-color: #007BFF;
-  }
-
-  textarea {
-    width: 100%;
-    height: 80px;
-    padding: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    resize: vertical;
-    box-sizing: border-box;
+  button {
+    padding: 10px;
+    cursor: pointer;
   }
 </style>
