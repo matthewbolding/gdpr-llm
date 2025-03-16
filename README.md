@@ -4,39 +4,25 @@ To Do:
 - Selector not displaying current number of items per page.
 - Ranking or preference ranking dataset? (This will form the basis of v2.)
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
+## Running the Project
 
 ## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+After cloning the repository, run `npm install` to install the needed dependencies.
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
 npm run dev -- --open
 ```
 
-## Building
+## Interacting with the Database
+In order for the `server.js` file to communicate with the MySQL server, you must create a file in the respository's root and name it `db_config.json`. The file will follow the below structure.
 
-To create a production version of your app:
 
-```bash
-npm run build
+```json
+{
+    "host": "localhost",
+    "port": 5432,
+    "database": "gdpr",
+    "user": "your-user-here",
+    "password": "your-password-here"
+}
 ```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
