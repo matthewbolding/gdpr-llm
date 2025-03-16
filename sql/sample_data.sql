@@ -22,6 +22,7 @@ INSERT INTO models (model_name) VALUES
 INSERT INTO generations (question_id, model_id, generation_text) VALUES 
 (1, 1, 'The right to be forgotten allows individuals to request deletion of their data.'),
 (1, 2, 'GDPR grants EU citizens the right to have their personal data erased.'),
+(1, 3, 'This generator is unsure.'),
 (2, 1, 'Users can request access to their data via a Data Subject Access Request (DSAR).'),
-(2, 3, 'Data access requests must be responded to within one month.'),
-(3, 4, 'GDPR fines can reach up to 4% of annual revenue or €20 million, whichever is higher.');
+(2, 2, 'Cannot say for certain!'),
+(2, 3, 'Data access requests must be responded to within one month.');

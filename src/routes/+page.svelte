@@ -1,91 +1,74 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { debounce } from 'lodash-es';
 
   let questions = [];
-  let latestResponses = [];
   let currentPage = 1;
   let totalPages = 1;
-  let questionsPerPage = 5; // Default number of questions per page
-  let dataLoaded = false; // Ensures data is loaded before rendering
+  let questionsPerPage = 5;
+  let searchQuery = ''; // User input for search
+  let dataLoaded = false;
 
-  // Fetch questions and latest responses
-  async function fetchData(page = 1, limit = questionsPerPage) {
+  // Debounce the search function to prevent too many API requests
+  const debouncedSearch = debounce(fetchData, 300);
+
+  // Fetch questions with optional search query
+  async function fetchData(page = 1, limit = questionsPerPage, search = '') {
     try {
-      console.log(`Fetching questions for page ${page} with limit ${limit}...`);
+      console.log(`Fetching questions for page ${page}, limit ${limit}, search: "${search}"...`);
+      
+      dataLoaded = false;
 
-      dataLoaded = false; // Prevent stale data from appearing
-      latestResponses = []; // Reset latest responses before fetching
+      // Fetch questions with search parameter
+      const response = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Questions API Response:', data);
 
-      // Fetch questions
-      const questionsRes = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}`);
-      const questionsData = await questionsRes.json();
-
-      console.log('Questions API Response:', questionsData);
-
-      questions = questionsData.questions;
-      totalPages = questionsData.totalPages;
-      currentPage = questionsData.currentPage;
-
-      // Fetch latest responses for each question
-      const responsesPromises = questions.map(async (question) => {
-        const responsesRes = await fetch(`http://localhost:3000/api/responses?questionId=${question.question_id}`);
-        if (responsesRes.ok) {
-          const responsesData = await responsesRes.json();
-          return { question_id: question.question_id, responses: responsesData.responses };
-        }
-        return { question_id: question.question_id, responses: [] };
-      });
-
-      latestResponses = await Promise.all(responsesPromises);
-
-      console.log('Latest Responses API Response:', latestResponses);
-      dataLoaded = true; // Mark data as loaded
-
+      questions = data.questions;
+      totalPages = data.totalPages;
+      currentPage = data.currentPage;
+      dataLoaded = true;
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   }
 
-  // Load questions and responses on page mount
+  // Load data on page mount
   onMount(() => {
     fetchData();
   });
 
-  // Navigate to the individual question page
   function goToQuestion(questionId) {
     goto(`/questions/${questionId}`);
   }
 
-  // Update results when the number of questions per page changes
   function updateQuestionsPerPage(event) {
     questionsPerPage = parseInt(event.target.value);
-    dataLoaded = false; // Reset loading flag
-    fetchData(1, questionsPerPage); // Reset to page 1 when limit changes
+    fetchData(1, questionsPerPage, searchQuery);
   }
 
-  // Get latest responses for a given question ID
-  function getLatestResponsesForQuestion(questionId) {
-    if (!dataLoaded) return []; // Prevent errors if data isn't loaded yet
-
-    const result = latestResponses.find(item => item.question_id === questionId);
-    return result ? result.responses : [];
+  function handleSearch(event) {
+    searchQuery = event.target.value;
+    debouncedSearch(1, questionsPerPage, searchQuery);
   }
-
-  const capitalize = (str, lower = false) =>
-    (lower ? str.toLowerCase() : str).replace(/(?:^|\s|["'([{])+\S/g, match => match.toUpperCase());
-  ;
 </script>
 
 <main>
-  <h1>GDPR Questions & Responses</h1>
+  <h1>Annotation Framework</h1>
+  <p>Welcome, Matthew Bolding!</p>
 
-  <!-- Show loading message while data is being fetched -->
+  <div class="search-bar">
+    <input type="text" bind:value={searchQuery} placeholder="Search for a question..." on:input={handleSearch} />
+  </div>
+
   {#if !dataLoaded}
     <p>Loading data...</p>
   {:else}
-
-    <!-- Dropdown for selecting questions per page -->
     <div class="controls">
       <label for="questions-per-page">Questions per page:</label>
       <select id="questions-per-page" bind:value={questionsPerPage} on:change={updateQuestionsPerPage}>
@@ -95,62 +78,74 @@
         <option value="50">50</option>
       </select>
     </div>
-    <ul>
-      {#each questions as question}
-        <li>
-          <div>
-            <h2>{question.text}</h2>
-            <ul>
-              {#each getLatestResponsesForQuestion(question.question_id) as response}
-                <li>
-                  <p><strong>Model:</strong> {response.model}</p>
-                  <p><strong>Text:</strong> {response.response_text}</p>
-                  <p><strong>Status:</strong> {capitalize(response.status)}</p>
-                </li>
-              {/each}
-            </ul>
-            <button on:click={() => goToQuestion(question.question_id)}>View Question</button>
-          </div>
-        </li>
-      {/each}
-    </ul>
 
-    <!-- Pagination Controls -->
+    <table>
+      <thead>
+        <tr>
+          <th>Question</th>
+          <th>Pairs Answering Progress</th>
+          <th>Write-In</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each questions as question}
+          <tr>
+            <td>
+              <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
+            </td>
+            <td>
+              <progress max="100" value="0"></progress> <!-- Placeholder progress bar -->
+            </td>
+            <td>
+              <span>-</span> <!-- Placeholder for write-in -->
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
     <div class="pagination">
-      <button on:click={() => fetchData(currentPage - 1, questionsPerPage)} disabled={currentPage === 1}>
+      <button on:click={() => fetchData(currentPage - 1, questionsPerPage, searchQuery)} disabled={currentPage === 1}>
         Previous
       </button>
       <span>Page {currentPage} of {totalPages}</span>
-      <button on:click={() => fetchData(currentPage + 1, questionsPerPage)} disabled={currentPage === totalPages}>
+      <button on:click={() => fetchData(currentPage + 1, questionsPerPage, searchQuery)} disabled={currentPage === totalPages}>
         Next
       </button>
     </div>
-
   {/if}
 </main>
 
 <style>
-  .controls {
+  .search-bar {
     margin-bottom: 1rem;
+    text-align: right;
   }
 
-  ul {
-    list-style-type: none;
-    padding: 0;
-  }
-
-  li {
-    margin-bottom: 1rem;
+  .search-bar input {
     padding: 0.5rem;
+    width: 250px;
     border: 1px solid #ddd;
     border-radius: 5px;
   }
 
-  .pagination {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
+  .controls {
+    margin-bottom: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+  }
+
+  progress {
+    width: 100px;
   }
 
   button {
@@ -165,5 +160,12 @@
   button:disabled {
     background-color: #CCCCCC;
     cursor: not-allowed;
+  }
+
+  .pagination {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
   }
 </style>
