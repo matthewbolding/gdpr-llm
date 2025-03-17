@@ -29,12 +29,8 @@ CREATE TABLE ratings (
     question_id BIGINT UNSIGNED NOT NULL,
     gen_id_1 BIGINT UNSIGNED NOT NULL,
     gen_id_2 BIGINT UNSIGNED NOT NULL,
-    gen_1_usable BOOLEAN NOT NULL DEFAULT FALSE,
-    gen_2_usable BOOLEAN NOT NULL DEFAULT FALSE,
-    both_unusable BOOLEAN NOT NULL DEFAULT FALSE,
-    pref_1 BOOLEAN NOT NULL DEFAULT FALSE,
-    pref_2 BOOLEAN NOT NULL DEFAULT FALSE,
-    no_preference BOOLEAN NOT NULL DEFAULT FALSE,
+    user_selection ENUM('both_unusable', 'gen_1_usable', 'gen_2_usable', 'both_usable_pref_1', 'both_usable_pref_2', 'both_usable_no_pref') NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE,
     FOREIGN KEY (gen_id_1) REFERENCES generations(generation_id) ON DELETE CASCADE,
     FOREIGN KEY (gen_id_2) REFERENCES generations(generation_id) ON DELETE CASCADE
@@ -43,9 +39,7 @@ CREATE TABLE ratings (
 CREATE INDEX idx_ratings_question ON ratings(question_id);
 CREATE INDEX idx_ratings_gen_1 ON ratings(gen_id_1);
 CREATE INDEX idx_ratings_gen_2 ON ratings(gen_id_2);
-CREATE INDEX idx_ratings_usable_1 ON ratings (gen_1_usable, question_id);
-CREATE INDEX idx_ratings_usable_2 ON ratings (gen_2_usable, question_id);
-CREATE INDEX idx_ratings_both_unusable ON ratings (both_unusable, question_id);
+CREATE INDEX idx_ratings_user_selection ON ratings (user_selection, question_id);
 
 CREATE TABLE writeins (
     writein_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

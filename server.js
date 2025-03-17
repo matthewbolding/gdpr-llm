@@ -173,25 +173,80 @@ app.get('/api/pairs', async (req, res) => {
 });
 
 app.post('/api/rate', async (req, res) => {
-  const { question_id, gen_1_id, gen_2_id, usability, preference } = req.body;
-
-  if (!question_id || !gen_1_id || !gen_2_id || !usability) {
+  const { question_id, gen_1_id, gen_2_id, selection } = req.body;
+  
+  if (!question_id || !gen_1_id || !gen_2_id || !selection) {
     return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  const validSelections = [
+    'both_unusable',
+    'gen_1_usable',
+    'gen_2_usable',
+    'both_usable_pref_1',
+    'both_usable_pref_2',
+    'both_usable_no_pref'
+  ];
+
+  if (!validSelections.includes(selection)) {
+    return res.status(400).json({ message: 'Invalid selection value.' });
   }
 
   try {
     console.log(`[POST] /api/rate - Saving rating for question ${question_id}, pair (${gen_1_id}, ${gen_2_id})`);
-
+  
     const query = `
-      INSERT INTO ratings (question_id, gen_1_id, gen_2_id, usability, preference)
-      VALUES (?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE usability = VALUES(usability), preference = VALUES(preference);
+      INSERT INTO ratings (question_id, gen_id_1, gen_id_2, user_selection)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE user_selection = VALUES(user_selection);
     `;
-    
-    await db.query(query, [question_id, gen_1_id, gen_2_id, usability, preference || null]);
+  
+    await db.query(query, [question_id, gen_1_id, gen_2_id, selection]);
+  
     res.status(200).json({ message: 'Rating submitted successfully' });
   } catch (err) {
     console.error(`[ERROR] Saving rating: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/ratings', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    console.log(`[GET] /api/ratings?question_id=${questionId} - Fetching latest ratings`);
+    
+    const query = `
+      SELECT r.rating_id, r.question_id, r.gen_id_1, r.gen_id_2, r.user_selection, r.timestamp
+      FROM ratings r
+      INNER JOIN (
+        SELECT question_id, gen_id_1, gen_id_2, MAX(timestamp) AS latest_timestamp
+        FROM ratings
+        WHERE question_id = ?
+        GROUP BY question_id, gen_id_1, gen_id_2
+      ) latest_ratings
+      ON r.question_id = latest_ratings.question_id
+      AND r.gen_id_1 = latest_ratings.gen_id_1
+      AND r.gen_id_2 = latest_ratings.gen_id_2
+      AND r.timestamp = latest_ratings.latest_timestamp
+      ORDER BY r.timestamp DESC;
+    `;
+    
+    const [rows] = await db.query(query, [questionId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No ratings found for this question.' });
+    }
+
+    res.json({
+      question_id: questionId,
+      ratings: rows
+    });
+  } catch (err) {
+    console.error(`[ERROR] Fetching latest ratings for question ${questionId}: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });

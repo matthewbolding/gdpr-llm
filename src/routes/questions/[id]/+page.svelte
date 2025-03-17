@@ -5,17 +5,19 @@
 
   let questionId;
   let pairs = [];
+  let ratings = [];
   let questionText;
   let currentIndex = 0;
+  let answered = true;
   let dataLoaded = false;
 
   // Extract question_id from URL
   $: questionId = $page.params.id;
 
   // User's selection state
-  let user_selection = ''; // Stores user_selection selection
+  let user_selection = ''; // Stores user selection from the database
+  let local_user_selection = ''; // Stores the local user selection
 
-  // Fetch pairs for the given question ID
   // Fetch pairs and question text for the given question ID
   async function fetchData() {
     try {
@@ -37,24 +39,76 @@
       const pairsData = await pairsResponse.json();
       pairs = pairsData.pairs;
 
-      dataLoaded = true;
+      // Fetch ratings
+      const ratingsResponse = await fetch(`http://localhost:3000/api/ratings?question_id=${questionId}`);
+      if (!ratingsResponse.ok) {
+        if (ratingsResponse.status === 404) {
+          ratings = []; // No ratings found, keep it an empty array
+        } else {
+          throw new Error(`Error fetching ratings! Status: ${ratingsResponse.status}`);
+        }
+      } else {
+        const ratingsData = await ratingsResponse.json();
+        ratings = ratingsData.ratings;
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     }
-  } 
+  }
+
+  async function submitSelection() {
+    if (!local_user_selection) return;
+
+    try {
+      const response = await fetch('http://localhost:3000/api/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_id: questionId,
+          gen_1_id: pairs[currentIndex].gen_1_id,
+          gen_2_id: pairs[currentIndex].gen_2_id,
+          selection: local_user_selection
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to submit selection.');
+      
+    } catch (error) {
+      console.error('Error submitting selection:', error);
+    }
+    
+    await fetchData();
+    await prepareView();
+  }
+
+  async function prepareView() {
+    let selected_rating = ratings.find(
+      (r) => r.gen_id_1 === pairs[currentIndex].gen_1_id && r.gen_id_2 === pairs[currentIndex].gen_2_id
+    );
+
+    if(selected_rating) {
+      user_selection = selected_rating.user_selection;
+      local_user_selection = selected_rating.user_selection;
+      answered = true;
+    } else {
+      user_selection = ''
+      local_user_selection = ''
+      answered = false;
+    }
+  }
 
   // Move between pairs
   function previousPair() {
     if (currentIndex > 0) {
       currentIndex--;
-      user_selection = '';
+      prepareView();
     }
   }
 
   function nextPair() {
     if (currentIndex < pairs.length - 1) {
       currentIndex++;
-      user_selection = '';
+      prepareView();
     }
   }
 
@@ -67,8 +121,10 @@
   }
 
   // Load pairs on mount
-  onMount(() => {
-    fetchData();
+  onMount(async () => {
+    await fetchData();
+    await prepareView();
+    dataLoaded = true;
   });
 </script>
 
@@ -81,13 +137,13 @@
     {#if pairs.length > 0}
       <div class="container">
         
-        <!-- Generator 1 -->
+        <!-- Generator X -->
         <div class="generation">
           <h3>Generator {pairs[currentIndex].gen_1_model_id}</h3>
           <p>{pairs[currentIndex].gen_1_text}</p>
         </div>
 
-        <!-- Generator 2 -->
+        <!-- Generator Y -->
         <div class="generation">
           <h3>Generator {pairs[currentIndex].gen_2_model_id}</h3>
           <p>{pairs[currentIndex].gen_2_text}</p>
@@ -97,36 +153,63 @@
         <div class="instructions">
           <h3>Instructions</h3>
           <p>Make only one selection as to the usability or unusability of a generator's output. You may change your selection at anytime. Your most recent selection is indicated below.</p>
-
+          
           <!-- Usability Selection -->
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="both_unusable"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="both_unusable"/>
             Both Generator {pairs[currentIndex].gen_1_model_id} and Generator {pairs[currentIndex].gen_2_model_id} are <span class="unusable">unusable</span> <em>as they are</em>.
           </label>
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="gen1_usable"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="gen_1_usable"/>
             Generator {pairs[currentIndex].gen_1_model_id} is <span class="usable">usable</span> and Generator {pairs[currentIndex].gen_2_model_id} is <span class="unusable">unusable</span> <em>as they are</em>.
           </label>
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="gen2_usable"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="gen_2_usable"/>
             Generator {pairs[currentIndex].gen_1_model_id} is <span class="unusable">unusable</span> and Generator {pairs[currentIndex].gen_2_model_id} <span class="usable">usable</span> <em>as they are</em>.
           </label>
 
           <p>If both Generator 1 and Generator 2 are <span class="usable">usable</span>  <em>as they are</em>, which one do you prefer?</p>
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="gen1_pref"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_pref_1"/>
             Generator {pairs[currentIndex].gen_1_model_id}
           </label>
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="gen2_pref"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_pref_2"/>
             Generator {pairs[currentIndex].gen_2_model_id}
           </label>
           <label>
-            <input type="radio" name="selection" bind:group={user_selection} value="equal"/>
+            <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_no_pref"/>
             Both Equal
           </label>
 
-          <button class="submit-btn">Submit</button>
+          <button class="submit-btn" on:click={submitSelection}>Submit</button>
+
+          {#if answered}
+            <p>Your evaluation is...</p>
+
+            <ul style="list-style-type:none;">
+              {#if user_selection === 'both_unusable'}
+                <li>Generator {pairs[currentIndex].gen_1_model_id} is <span class="unusable">unusable</span></li>
+                <li>Generator {pairs[currentIndex].gen_2_model_id} is <span class="unusable">unusable</span></li>
+              {:else if user_selection === 'gen_1_usable'}
+                <li>Generator {pairs[currentIndex].gen_1_model_id} is <span class="usable">usable</span></li>
+                <li>Generator {pairs[currentIndex].gen_2_model_id} is <span class="unusable">unusable</span></li>
+              {:else if user_selection === 'gen_2_usable'}
+                <li>Generator {pairs[currentIndex].gen_1_model_id} is <span class="unusable">unusable</span></li>
+                <li>Generator {pairs[currentIndex].gen_2_model_id} is <span class="usable">usable</span></li>
+              {:else}
+                <li>Generator {pairs[currentIndex].gen_1_model_id} is <span class="usable">usable</span></li>
+                <li>Generator {pairs[currentIndex].gen_2_model_id} is <span class="usable">usable</span></li>
+              {/if}
+            </ul>
+            {#if user_selection === 'both_usable_pref_1'}
+              <p>and you prefer Generator {pairs[currentIndex].gen_1_model_id}.</p>
+            {:else if user_selection === 'both_usable_pref_2'}
+              <p>and you prefer Generator {pairs[currentIndex].gen_2_model_id}.</p>
+            {:else if user_selection === 'both_usable_no_pref'}
+              <p>and you have no preferene.</p>
+            {/if}
+          {/if}
         </div>
       </div>
 
@@ -134,6 +217,7 @@
       <div class="navigation">
         <button on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
         <button on:click={goHome}>Home</button>
+        <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
         <button on:click={goToWriteIn} disabled>Write-In</button>
         <button on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
       </div>
@@ -174,12 +258,18 @@
     margin-bottom: 10px;
   }
 
-  .usable {
+  .usable, .answered {
     color: green;
   }
 
-  .unusable {
+  .unusable, .unanswered {
     color: red;
+  }
+
+  .status {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 10px;
   }
 
   .submit-btn {
