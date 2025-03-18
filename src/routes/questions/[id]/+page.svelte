@@ -125,8 +125,8 @@
     goto('/');
   }
 
-  function goToWriteIn() {
-    // goto('/question/[id]/writein')
+  function goToWriteIn(questionId) {
+    goto(`/questions/${questionId}/write-in`)
   }
 
   // Load pairs on mount
@@ -227,7 +227,7 @@
         <button on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
         <button on:click={goHome}>Home</button>
         <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
-        <button on:click={goToWriteIn} disabled={!writein_page}>Write-In</button>
+        <button on:click={() => goToWriteIn(questionId)} disabled={!writein_page}>Write-In</button>
         <button on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
       </div>
 

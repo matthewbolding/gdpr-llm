@@ -300,6 +300,77 @@ app.get('/api/has-writein', async (req, res) => {
   }
 });
 
+app.post('/api/writeins', async (req, res) => {
+  const { question_id, writein_text, generations } = req.body;
+  if (!question_id || !writein_text || !Array.isArray(generations)) {
+    return res.status(400).json({ message: 'Missing required fields or invalid format.' });
+  }
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    console.log(`[POST] /api/writeins - Submitting write-in for question ${question_id}`);
+    
+    // Insert the write-in response
+    const [writeinResult] = await connection.query(
+      `INSERT INTO writeins (question_id, writein_text) VALUES (?, ?)`,
+      [question_id, writein_text]
+    );
+    const writein_id = writeinResult.insertId;
+
+    // Insert associations with selected generations
+    if (generations.length > 0) {
+      const values = generations.map(({ generation_id, used }) => [writein_id, generation_id, used]);
+      await connection.query(
+        `INSERT INTO writein_generations (writein_id, generation_id, used) VALUES ?`,
+        [values]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+    res.status(201).json({ message: 'Write-in submitted successfully', writein_id });
+  } catch (err) {
+    await connection.rollback();
+    connection.release();
+    console.error(`[ERROR] Submitting write-in: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/writeins/latest', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    console.log(`[GET] /api/writeins/latest?question_id=${questionId} - Fetching latest write-in`);
+    
+    const query = `
+      SELECT w.writein_id, w.question_id, w.writein_text, w.timestamp, 
+             JSON_ARRAYAGG(wg.generation_id) AS generation_ids
+      FROM writeins w
+      LEFT JOIN writein_generations wg ON w.writein_id = wg.writein_id
+      WHERE w.question_id = ? AND wg.used = TRUE
+      GROUP BY w.writein_id
+      ORDER BY w.timestamp DESC
+      LIMIT 1;
+    `;
+    
+    const [rows] = await db.query(query, [questionId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No write-ins found for this question.' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(`[ERROR] Fetching latest write-in for question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 // Start the server
 app.listen(port, () => {

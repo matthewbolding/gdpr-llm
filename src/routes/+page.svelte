@@ -86,8 +86,8 @@
     goto(`/questions/${questionId}`);
   }
 
-  function goToWriteIn() {
-    // goto('/question/[id]/writein')
+  function goToWriteIn(questionId) {
+    goto(`/questions/${questionId}/write-in`)
   }
 
   function updateQuestionsPerPage(event) {
@@ -140,7 +140,7 @@
               <progress max="100" value="0"></progress> <!-- Placeholder progress bar -->
             </td>
             <td>
-              <button on:click{} disabled={!hasWriteIns[question.question_id]}>Go</button>
+              <button on:click={() => goToWriteIn(question.question_id)} disabled={!hasWriteIns[question.question_id]}>Go</button>
             </td>
           </tr>
         {/each}
