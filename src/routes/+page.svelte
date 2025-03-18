@@ -8,6 +8,7 @@
   let totalPages = 1;
   let questionsPerPage = 5;
   let searchQuery = ''; // User input for search
+  let hasWriteIns = {};
   let dataLoaded = false;
 
   // Debounce the search function to prevent too many API requests
@@ -32,19 +33,61 @@
       questions = data.questions;
       totalPages = data.totalPages;
       currentPage = data.currentPage;
+
       dataLoaded = true;
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   }
 
+  async function fetchHasWriteIns() {
+  try {
+    if (!questions || questions.length === 0) return;
+
+    console.log("Fetching write-in availability for all questions...");
+
+    // Create an array of fetch promises for all question IDs
+    const writeInPromises = questions.map(async (question) => {
+      try {
+        const response = await fetch(`http://localhost:3000/api/has-writein?question_id=${question.question_id}`);
+        if (!response.ok) throw new Error(`Error fetching write-in status for question ${question.question_id}`);
+
+        const data = await response.json();
+        return { question_id: question.question_id, has_writein: data.has_writein ?? false };
+      } catch (error) {
+        console.error(`Error fetching write-in status for question ${question.question_id}:`, error);
+        return { question_id: question.question_id, has_writein: false }; // Ensure it gets set to false on failure
+      }
+    });
+
+    // Wait for all fetches to resolve
+    const results = await Promise.all(writeInPromises);
+
+    // Store results in a dictionary-like object
+    hasWriteIns = results.reduce((acc, result) => {
+      acc[result.question_id] = result.has_writein;
+      return acc;
+    }, {});
+
+    console.log("Write-in availability:", hasWriteIns);
+  } catch (error) {
+    console.error("Error fetching write-in availability:", error);
+  }
+}
+
   // Load data on page mount
-  onMount(() => {
-    fetchData();
+  onMount(async () => {
+    await fetchData();
+    await fetchHasWriteIns();
+    dataLoaded = true;
   });
 
   function goToQuestion(questionId) {
     goto(`/questions/${questionId}`);
+  }
+
+  function goToWriteIn() {
+    // goto('/question/[id]/writein')
   }
 
   function updateQuestionsPerPage(event) {
@@ -97,7 +140,7 @@
               <progress max="100" value="0"></progress> <!-- Placeholder progress bar -->
             </td>
             <td>
-              <span>-</span> <!-- Placeholder for write-in -->
+              <button on:click{} disabled={!hasWriteIns[question.question_id]}>Go</button>
             </td>
           </tr>
         {/each}

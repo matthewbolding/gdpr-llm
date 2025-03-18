@@ -10,6 +10,7 @@
   let currentIndex = 0;
   let answered = true;
   let dataLoaded = false;
+  let writein_page = false;
 
   // Extract question_id from URL
   $: questionId = $page.params.id;
@@ -38,6 +39,14 @@
       }
       const pairsData = await pairsResponse.json();
       pairs = pairsData.pairs;
+
+      // Fetch whether question has writein
+      const writeInResponse = await fetch(`http://localhost:3000/api/has-writein?question_id=${questionId}`);
+      if (!writeInResponse.ok) {
+        throw new Error(`Error fetching pairs! Status: ${writeInResponse.status}`);
+      }
+      const writeInResponseData = await writeInResponse.json();
+      writein_page = writeInResponseData.has_writein;
 
       // Fetch ratings
       const ratingsResponse = await fetch(`http://localhost:3000/api/ratings?question_id=${questionId}`);
@@ -218,7 +227,7 @@
         <button on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
         <button on:click={goHome}>Home</button>
         <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
-        <button on:click={goToWriteIn} disabled>Write-In</button>
+        <button on:click={goToWriteIn} disabled={!writein_page}>Write-In</button>
         <button on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
       </div>
 

@@ -251,6 +251,56 @@ app.get('/api/ratings', async (req, res) => {
   }
 });
 
+app.get('/api/has-writein', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    console.log(`[GET] /api/has-writein?question_id=${questionId} - Checking if write-up is possible`);
+    
+    // Fetch all generation pairs for the question
+    const pairsResponse = await fetch(`http://localhost:3000/api/pairs?question_id=${questionId}`);
+    if (!pairsResponse.ok) {
+      return res.json({ question_id: questionId, writeup_possible: false });
+    }
+    const pairsData = await pairsResponse.json();
+
+    if (!pairsData.pairs || pairsData.pairs.length === 0) {
+      return res.json({ question_id: questionId, writeup_possible: false });
+    }
+
+    // Fetch all latest ratings for the question
+    const ratingsResponse = await fetch(`http://localhost:3000/api/ratings?question_id=${questionId}`);
+    if (!ratingsResponse.ok) {
+      return res.json({ question_id: questionId, writeup_possible: false });
+    }
+    const ratingsData = await ratingsResponse.json();
+
+    // Convert ratings into a map for easy lookup
+    const ratingsMap = new Map();
+    ratingsData.ratings.forEach(rating => {
+      ratingsMap.set(`${rating.gen_id_1}-${rating.gen_id_2}`, rating.user_selection);
+    });
+
+    // Check if all pairs are marked as 'both_unusable'
+    const allUnusable = pairsData.pairs.every(pair => {
+      const key = `${pair.gen_1_id}-${pair.gen_2_id}`;
+      return ratingsMap.get(key) === 'both_unusable';
+    });
+
+    res.json({
+      question_id: questionId,
+      has_writein: allUnusable
+    });
+  } catch (err) {
+    console.error(`[ERROR] Checking write-up possibility for question ${questionId}: ${err.message}`);
+    res.json({ question_id: questionId, has_writein: false });
+  }
+});
+
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}.`);
