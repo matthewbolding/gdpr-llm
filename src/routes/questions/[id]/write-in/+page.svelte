@@ -8,6 +8,8 @@
   let generations = [];
   let selectedGenerations = {};
   let writeinText = '';
+  let saved_writein_text = ''
+  let saved_writein_gens = []
   let answered = false;
   let dataLoaded = false;
   
@@ -37,6 +39,30 @@
   
       // Initialize selection state
       generations.forEach(gen => selectedGenerations[gen.generation_id] = false);
+
+      // Fetch write in
+      const writeInResponse = await fetch(`http://localhost:3000/api/writeins/latest?question_id=${questionId}`);
+      if (!writeInResponse.ok) {
+        // This needs to be fixed...
+        // if (!writeInResponse.status === 404) {
+        // } else {
+        //   throw new Error(`Error fetching write in! Status: ${writeInResponse.status}`);
+        // }
+      } else {
+        const ratingsData = await writeInResponse.json();
+        saved_writein_text = ratingsData.writein_text;
+        saved_writein_gens = ratingsData.generation_ids;
+        
+        writeinText = saved_writein_text;
+        saved_writein_gens.forEach(index => {
+          if (selectedGenerations.hasOwnProperty(index)) {
+            console.log(index)
+            selectedGenerations[index] = true;
+          }
+        });
+
+        answered = true;
+      }
   
       dataLoaded = true;
     } catch (error) {
@@ -67,6 +93,8 @@
     } catch (error) {
       console.error('Error submitting write-in:', error);
     }
+
+    await fetchData();
   }
   
   function goToQuestion(questionId) {
@@ -77,7 +105,9 @@
     goto('/');
   }
   
-  onMount(fetchData);
+  onMount(async () => {
+    await fetchData();
+  });
 </script>
   
 <main>
