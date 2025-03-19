@@ -1,7 +1,13 @@
 # GDPR x LLM
 
 To Do:
-- For 404 error handling on 
+- For 404 error handling on write in page.
+- Implement time tracking.
+  - Add duration columns to `writeins` and `ratings` tables.
+  - Add timers on front end.
+- Progress bars.
+- User paradigm.
+- Unify formatting across all pages.
 
 ## Developing
 After cloning the repository, run `npm install` to install the needed dependencies.
