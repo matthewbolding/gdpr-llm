@@ -1,4 +1,5 @@
-USE gdpr;
+CREATE DATABASE IF NOT EXISTS gdpr;
+USE grpd;
 
 CREATE TABLE questions (
     question_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -63,28 +64,3 @@ CREATE TABLE writein_generations (
 CREATE INDEX idx_writein_generations_writein ON writein_generations(writein_id);
 CREATE INDEX idx_writein_generations_generation ON writein_generations(generation_id);
 
-CREATE TABLE pairs (
-    pair_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    question_id BIGINT UNSIGNED NOT NULL,
-    generation_id_1 BIGINT UNSIGNED NOT NULL,
-    generation_id_2 BIGINT UNSIGNED NOT NULL,
-    FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE,
-    FOREIGN KEY (generation_id_1) REFERENCES generations(generation_id) ON DELETE CASCADE,
-    FOREIGN KEY (generation_id_2) REFERENCES generations(generation_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_pairs_question ON pairs(question_id);
-CREATE INDEX idx_pairs_gen_1 ON pairs(generation_id_1);
-CREATE INDEX idx_pairs_gen_2 ON pairs(generation_id_2);
-
-CREATE TABLE rating_generations (
-    rating_id BIGINT UNSIGNED NOT NULL,
-    generation_id BIGINT UNSIGNED NOT NULL,
-    usable BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (rating_id, generation_id),
-    FOREIGN KEY (rating_id) REFERENCES ratings(rating_id) ON DELETE CASCADE,
-    FOREIGN KEY (generation_id) REFERENCES generations(generation_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_rating_generations_rating ON rating_generations(rating_id);
-CREATE INDEX idx_rating_generations_generation ON rating_generations(generation_id);

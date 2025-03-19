@@ -1,10 +1,7 @@
 # GDPR x LLM
 
 To Do:
-- Selector not displaying current number of items per page.
-- Ranking or preference ranking dataset? (This will form the basis of v2.)
-
-## Running the Project
+- For 404 error handling on 
 
 ## Developing
 After cloning the repository, run `npm install` to install the needed dependencies.
@@ -26,3 +23,7 @@ In order for the `server.js` file to communicate with the MySQL server, you must
     "password": "your-password-here"
 }
 ```
+
+If you do not already have a database created, login to the MySQL terminal and source `schema.sql`. This will create the schema in the database. Then, source `sample_data.sql` to load in some fake data; this data only includes questions and possible responses created by models.
+
+The purpose of `reset.sql` is to delete all user generated rows in the database. Specifically, sourcing this file will delete all rows in tables `writeins`, `writein_generations`, and `ratings`.
