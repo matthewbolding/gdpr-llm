@@ -2,12 +2,17 @@
 
 To Do:
 - For 404 error handling on write in page.
-- Implement time tracking.
-  - Add duration columns to `writeins` and `ratings` tables.
-  - Add timers on front end.
-- Progress bars.
-- User paradigm.
+- *Replace progress bar.*
+  - *Complete/Incomplete indicator on landing page.*
+  - *Time spent on question.*
+- *User paradigm.*
 - Unify formatting across all pages.
+- *Randomize generator numbers.*
+- Ingest API endpoints.
+- *Time tracking override.*
+- *Implement time tracking.*
+  - *Add duration columns to `writeins` and `ratings` tables.*
+  - *Add timers on front end.*
 
 ## Developing
 After cloning the repository, run `npm install` to install the needed dependencies.
@@ -33,3 +38,6 @@ In order for the `server.js` file to communicate with the MySQL server, you must
 If you do not already have a database created, login to the MySQL terminal and source `schema.sql`. This will create the schema in the database. Then, source `sample_data.sql` to load in some fake data; this data only includes questions and possible responses created by models.
 
 The purpose of `reset.sql` is to delete all user generated rows in the database. Specifically, sourcing this file will delete all rows in tables `writeins`, `writein_generations`, and `ratings`.
+
+## Hosting
+The current planned iteration of this tool does not provide for robust security. Therefore, as a broad safeguard against unauthorized access, the website as it's hosted will have [basic HTTP authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/).
