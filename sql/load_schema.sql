@@ -32,6 +32,7 @@ CREATE TABLE ratings (
     gen_id_2 BIGINT UNSIGNED NOT NULL,
     user_selection ENUM('both_unusable', 'gen_1_usable', 'gen_2_usable', 'both_usable_pref_1', 'both_usable_pref_2', 'both_usable_no_pref') NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    time_spent_seconds INT UNSIGNED NOT NULL,
     FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE,
     FOREIGN KEY (gen_id_1) REFERENCES generations(generation_id) ON DELETE CASCADE,
     FOREIGN KEY (gen_id_2) REFERENCES generations(generation_id) ON DELETE CASCADE
@@ -47,6 +48,7 @@ CREATE TABLE writeins (
     question_id BIGINT UNSIGNED NOT NULL,
     writein_text TEXT NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    time_spent_seconds INT UNSIGNED NOT NULL,
     FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
 
