@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import mysql from 'mysql2';
 import fs from 'fs/promises';
 import cors from 'cors';
+import { time } from 'console';
 
 const app = express();
 const port = 3000;
@@ -173,9 +174,9 @@ app.get('/api/pairs', async (req, res) => {
 });
 
 app.post('/api/rate', async (req, res) => {
-  const { question_id, gen_1_id, gen_2_id, selection } = req.body;
+  const { question_id, gen_1_id, gen_2_id, selection, time_spent } = req.body;
   
-  if (!question_id || !gen_1_id || !gen_2_id || !selection) {
+  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent) {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
 
@@ -196,12 +197,12 @@ app.post('/api/rate', async (req, res) => {
     console.log(`[POST] /api/rate - Saving rating for question ${question_id}, pair (${gen_1_id}, ${gen_2_id})`);
   
     const query = `
-      INSERT INTO ratings (question_id, gen_id_1, gen_id_2, user_selection)
-      VALUES (?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE user_selection = VALUES(user_selection);
+      INSERT INTO ratings (question_id, gen_id_1, gen_id_2, user_selection, time_spent_seconds)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE user_selection = VALUES(user_selection), time_spent_seconds = VALUES(time_spent_seconds);
     `;
   
-    await db.query(query, [question_id, gen_1_id, gen_2_id, selection]);
+    await db.query(query, [question_id, gen_1_id, gen_2_id, selection, time_spent]);
   
     res.status(200).json({ message: 'Rating submitted successfully' });
   } catch (err) {
@@ -301,7 +302,7 @@ app.get('/api/has-writein', async (req, res) => {
 });
 
 app.post('/api/writeins', async (req, res) => {
-  const { question_id, writein_text, generations } = req.body;
+  const { question_id, writein_text, generations, time_spent } = req.body;
   if (!question_id || !writein_text || !Array.isArray(generations)) {
     return res.status(400).json({ message: 'Missing required fields or invalid format.' });
   }
@@ -314,8 +315,8 @@ app.post('/api/writeins', async (req, res) => {
     
     // Insert the write-in response
     const [writeinResult] = await connection.query(
-      `INSERT INTO writeins (question_id, writein_text) VALUES (?, ?)`,
-      [question_id, writein_text]
+      `INSERT INTO writeins (question_id, writein_text, time_spent_seconds) VALUES (?, ?, ?)`,
+      [question_id, writein_text, time_spent]
     );
     const writein_id = writeinResult.insertId;
 
@@ -349,11 +350,16 @@ app.get('/api/writeins/latest', async (req, res) => {
     console.log(`[GET] /api/writeins/latest?question_id=${questionId} - Fetching latest write-in`);
     
     const query = `
-      SELECT w.writein_id, w.question_id, w.writein_text, w.timestamp, 
-             JSON_ARRAYAGG(wg.generation_id) AS generation_ids
+      SELECT 
+        w.writein_id, 
+        w.question_id, 
+        w.writein_text, 
+        w.timestamp, 
+        COALESCE(JSON_ARRAYAGG(wg.generation_id), JSON_ARRAY()) AS generation_ids
       FROM writeins w
-      LEFT JOIN writein_generations wg ON w.writein_id = wg.writein_id
-      WHERE w.question_id = ? AND wg.used = TRUE
+      LEFT JOIN writein_generations wg 
+        ON w.writein_id = wg.writein_id AND wg.used = TRUE
+      WHERE w.question_id = ?
       GROUP BY w.writein_id
       ORDER BY w.timestamp DESC
       LIMIT 1;
@@ -368,6 +374,49 @@ app.get('/api/writeins/latest', async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     console.error(`[ERROR] Fetching latest write-in for question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
+app.get('/api/time/ratings', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    const query = `
+      SELECT COALESCE(SUM(time_spent_seconds), 0) AS total_rating_time
+      FROM ratings
+      WHERE question_id = ?;
+    `;
+
+    const [rows] = await db.query(query, [questionId]);
+    res.json({ question_id: questionId, total_rating_time: rows[0].total_rating_time });
+  } catch (err) {
+    console.error(`[ERROR] Summing rating time: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/time/writeins', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    const query = `
+      SELECT COALESCE(SUM(time_spent_seconds), 0) AS total_writein_time
+      FROM writeins
+      WHERE question_id = ?;
+    `;
+
+    const [rows] = await db.query(query, [questionId]);
+    res.json({ question_id: questionId, total_writein_time: rows[0].total_writein_time });
+  } catch (err) {
+    console.error(`[ERROR] Summing write-in time: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });

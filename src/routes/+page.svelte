@@ -9,6 +9,7 @@
   let questionsPerPage = 5;
   let searchQuery = ''; // User input for search
   let hasWriteIns = {};
+  let times = {}
   let dataLoaded = false;
 
   // Debounce the search function to prevent too many API requests
@@ -41,44 +42,75 @@
   }
 
   async function fetchHasWriteIns() {
-  try {
+    try {
+      if (!questions || questions.length === 0) return;
+
+      console.log("Fetching write-in availability for all questions...");
+
+      // Create an array of fetch promises for all question IDs
+      const writeInPromises = questions.map(async (question) => {
+        try {
+          const response = await fetch(`http://localhost:3000/api/has-writein?question_id=${question.question_id}`);
+          if (!response.ok) throw new Error(`Error fetching write-in status for question ${question.question_id}`);
+
+          const data = await response.json();
+          return { question_id: question.question_id, has_writein: data.has_writein ?? false };
+        } catch (error) {
+          console.error(`Error fetching write-in status for question ${question.question_id}:`, error);
+          return { question_id: question.question_id, has_writein: false }; // Ensure it gets set to false on failure
+        }
+      });
+
+      // Wait for all fetches to resolve
+      const results = await Promise.all(writeInPromises);
+
+      // Store results in a dictionary-like object
+      hasWriteIns = results.reduce((acc, result) => {
+        acc[result.question_id] = result.has_writein;
+        return acc;
+      }, {});
+
+      console.log("Write-in availability:", hasWriteIns);
+    } catch (error) {
+      console.error("Error fetching write-in availability:", error);
+    }
+  }
+
+  async function fetchTimes() {
     if (!questions || questions.length === 0) return;
 
     console.log("Fetching write-in availability for all questions...");
 
-    // Create an array of fetch promises for all question IDs
-    const writeInPromises = questions.map(async (question) => {
+    const timeFetchPromises = questions.map(async (question) => {
+      const questionId = question.question_id;
+    
       try {
-        const response = await fetch(`http://localhost:3000/api/has-writein?question_id=${question.question_id}`);
-        if (!response.ok) throw new Error(`Error fetching write-in status for question ${question.question_id}`);
-
-        const data = await response.json();
-        return { question_id: question.question_id, has_writein: data.has_writein ?? false };
+        const [ratingRes, writeinRes] = await Promise.all([
+          fetch(`http://localhost:3000/api/time/ratings?question_id=${questionId}`),
+          fetch(`http://localhost:3000/api/time/writeins?question_id=${questionId}`)
+        ]);
+      
+        const ratingData = await ratingRes.json();
+        const writeinData = await writeinRes.json();
+      
+        const totalTime = parseInt(ratingData.total_rating_time, 10) + parseInt(writeinData.total_writein_time, 10);
+        times[questionId] = totalTime;
+      
       } catch (error) {
-        console.error(`Error fetching write-in status for question ${question.question_id}:`, error);
-        return { question_id: question.question_id, has_writein: false }; // Ensure it gets set to false on failure
+        console.error(`Error fetching time for question_id=${questionId}:`, error);
+        times[questionId] = 0;
       }
     });
 
-    // Wait for all fetches to resolve
-    const results = await Promise.all(writeInPromises);
-
-    // Store results in a dictionary-like object
-    hasWriteIns = results.reduce((acc, result) => {
-      acc[result.question_id] = result.has_writein;
-      return acc;
-    }, {});
-
-    console.log("Write-in availability:", hasWriteIns);
-  } catch (error) {
-    console.error("Error fetching write-in availability:", error);
+    await Promise.all(timeFetchPromises);
+    console.log("Total time per question:", times);
   }
-}
 
   // Load data on page mount
   onMount(async () => {
     await fetchData();
     await fetchHasWriteIns();
+    await fetchTimes();
     dataLoaded = true;
   });
 
@@ -126,7 +158,7 @@
       <thead>
         <tr>
           <th>Question</th>
-          <th>Pairs Answering Progress</th>
+          <th>Status</th>
           <th>Write-In</th>
         </tr>
       </thead>
@@ -137,7 +169,7 @@
               <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
             </td>
             <td>
-              <progress max="100" value="0"></progress> <!-- Placeholder progress bar -->
+              {times[question.question_id]} seconds
             </td>
             <td>
               <button on:click={() => goToWriteIn(question.question_id)} disabled={!hasWriteIns[question.question_id]}>Go</button>
@@ -186,11 +218,7 @@
     border-bottom: 1px solid #ddd;
     text-align: left;
   }
-
-  progress {
-    width: 100px;
-  }
-
+  
   button {
     padding: 0.5rem 1rem;
     border: none;

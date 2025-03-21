@@ -12,6 +12,7 @@
   let saved_writein_gens = []
   let answered = false;
   let dataLoaded = false;
+  let startTime = 0;
   
   // Extract question_id from URL
   $: questionId = $page.params.id;
@@ -64,6 +65,7 @@
         answered = true;
       }
   
+      startTime = Date.now();
       dataLoaded = true;
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -75,6 +77,9 @@
   }
   
   async function submitWriteIn() {
+    let endTime = Date.now();
+    let timeSpent = Math.floor((endTime - startTime) / 1000);
+    
     try {
       const response = await fetch('http://localhost:3000/api/writeins', {
         method: 'POST',
@@ -85,7 +90,8 @@
           generations: Object.entries(selectedGenerations).map(([generation_id, used]) => ({
             generation_id: parseInt(generation_id),
             used
-          }))
+          })),
+          time_spent: timeSpent
         })
       });
   

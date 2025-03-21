@@ -8,6 +8,7 @@
   let ratings = [];
   let questionText;
   let currentIndex = 0;
+  let startTime = 0;
   let answered = true;
   let dataLoaded = false;
   let writein_page = false;
@@ -68,6 +69,9 @@
   async function submitSelection() {
     if (!local_user_selection) return;
 
+    let endTime = Date.now();
+    let timeSpent = Math.floor((endTime - startTime) / 1000);
+
     try {
       const response = await fetch('http://localhost:3000/api/rate', {
         method: 'POST',
@@ -76,7 +80,8 @@
           question_id: questionId,
           gen_1_id: pairs[currentIndex].gen_1_id,
           gen_2_id: pairs[currentIndex].gen_2_id,
-          selection: local_user_selection
+          selection: local_user_selection,
+          time_spent: timeSpent
         })
       });
 
@@ -111,6 +116,7 @@
     if (currentIndex > 0) {
       currentIndex--;
       prepareView();
+      startTime = Date.now();
     }
   }
 
@@ -118,6 +124,7 @@
     if (currentIndex < pairs.length - 1) {
       currentIndex++;
       prepareView();
+      startTime = Date.now();
     }
   }
 
@@ -133,6 +140,7 @@
   onMount(async () => {
     await fetchData();
     await prepareView();
+    startTime = Date.now();
     dataLoaded = true;
   });
 </script>
