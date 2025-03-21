@@ -378,7 +378,6 @@ app.get('/api/writeins/latest', async (req, res) => {
   }
 });
 
-
 app.get('/api/time/ratings', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
   if (isNaN(questionId)) {
@@ -417,6 +416,82 @@ app.get('/api/time/writeins', async (req, res) => {
     res.json({ question_id: questionId, total_writein_time: rows[0].total_writein_time });
   } catch (err) {
     console.error(`[ERROR] Summing write-in time: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/questions/is-answered', async (req, res) => {
+  const questionId = parseInt(req.query.question_id, 10);
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'Invalid question_id' });
+  }
+
+  try {
+    // 1. Get all generation pairs for the question
+    const [pairs] = await db.query(`
+      SELECT g1.generation_id AS gen_1_id, g2.generation_id AS gen_2_id
+      FROM generations g1
+      JOIN generations g2 ON g1.question_id = g2.question_id AND g1.generation_id < g2.generation_id
+      WHERE g1.question_id = ?;
+    `, [questionId]);
+
+    if (pairs.length === 0) {
+      return res.json({ question_id: questionId, is_answered: false });
+    }
+
+    // 2. Get most recent ratings for the question
+    const [ratings] = await db.query(`
+      SELECT r.gen_id_1, r.gen_id_2, r.user_selection
+      FROM ratings r
+      INNER JOIN (
+        SELECT question_id, gen_id_1, gen_id_2, MAX(rating_id) AS max_rating_id
+        FROM ratings
+        WHERE question_id = ?
+        GROUP BY question_id, gen_id_1, gen_id_2
+      ) latest ON r.rating_id = latest.max_rating_id;
+    `, [questionId]);
+
+    const ratingMap = new Map();
+    ratings.forEach(rating => {
+      const key = `${rating.gen_id_1}-${rating.gen_id_2}`;
+      ratingMap.set(key, rating.user_selection);
+    });
+
+    let allHaveRatings = true;
+    let hasNonBothUnusable = false;
+
+    for (const pair of pairs) {
+      const key = `${pair.gen_1_id}-${pair.gen_2_id}`;
+      const selection = ratingMap.get(key);
+
+      if (!selection) {
+        allHaveRatings = false;
+        break;
+      }
+
+      if (selection !== 'both_unusable') {
+        hasNonBothUnusable = true;
+      }
+    }
+
+    if (!allHaveRatings) {
+      return res.json({ question_id: questionId, is_answered: false });
+    }
+
+    // 3. If all pairs are rated, but all are both_unusable, check for a write-in
+    if (!hasNonBothUnusable) {
+      const [writeins] = await db.query(`
+        SELECT 1 FROM writeins WHERE question_id = ? LIMIT 1;
+      `, [questionId]);
+
+      return res.json({ question_id: questionId, is_answered: writeins.length > 0 });
+    }
+
+    // Otherwise fully answered
+    return res.json({ question_id: questionId, is_answered: true });
+
+  } catch (err) {
+    console.error(`[ERROR] Checking is-answered for question ${questionId}: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });

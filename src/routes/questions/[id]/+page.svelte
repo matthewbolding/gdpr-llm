@@ -93,6 +93,8 @@
     
     await fetchData();
     await prepareView();
+
+    startTime = Date.now();
   }
 
   async function prepareView() {

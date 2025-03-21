@@ -10,6 +10,7 @@
   let searchQuery = ''; // User input for search
   let hasWriteIns = {};
   let times = {}
+  let completed = {}
   let dataLoaded = false;
 
   // Debounce the search function to prevent too many API requests
@@ -106,11 +107,40 @@
     console.log("Total time per question:", times);
   }
 
+  async function fetchCompletion() {
+    if (!questions || questions.length === 0) return;
+
+    console.log("Fetching completion status for all questions...");
+
+    const completionFetchPromises = questions.map(async (question) => {
+      const questionId = question.question_id;
+
+      try {
+        const response = await fetch(`http://localhost:3000/api/questions/is-answered?question_id=${questionId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch completion status for question ${questionId}`);
+        }
+
+        const data = await response.json();
+        completed[questionId] = data.is_answered ?? false;
+
+      } catch (error) {
+        console.error(`Error fetching completion for question ${questionId}:`, error);
+        completed[questionId] = false; // default to false if error occurs
+      }
+    });
+
+    await Promise.all(completionFetchPromises);
+    console.log("Completion statuses:", completed);
+  }
+
   // Load data on page mount
   onMount(async () => {
     await fetchData();
     await fetchHasWriteIns();
     await fetchTimes();
+    await fetchCompletion();
+    console.log(completed)
     dataLoaded = true;
   });
 
@@ -169,6 +199,7 @@
               <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
             </td>
             <td>
+              <p class="status {completed[question.question_id] ? 'answered' : 'unanswered'}">{completed[question.question_id] ? 'Answered' : 'Unanswered'}</p>
               {times[question.question_id]} seconds
             </td>
             <td>
@@ -217,6 +248,19 @@
     padding: 0.75rem;
     border-bottom: 1px solid #ddd;
     text-align: left;
+  }
+
+  .answered {
+    color: green;
+  }
+
+  .unanswered {
+    color: red;
+  }
+
+  .status {
+    font-weight: bold;
+    margin-top: 10px;
   }
   
   button {
