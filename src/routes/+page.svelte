@@ -140,7 +140,6 @@
     await fetchHasWriteIns();
     await fetchTimes();
     await fetchCompletion();
-    console.log(completed)
     dataLoaded = true;
   });
 
@@ -160,6 +159,15 @@
   function handleSearch(event) {
     searchQuery = event.target.value;
     debouncedSearch(1, questionsPerPage, searchQuery);
+  }
+
+  async function handlePageChange(newPage, questionsPerPage, searchQuery) {
+    dataLoaded = false;
+    await fetchData(newPage, questionsPerPage, searchQuery);
+    await fetchHasWriteIns();
+    await fetchTimes();
+    await fetchCompletion();
+    dataLoaded = true;
   }
 </script>
 
@@ -199,7 +207,7 @@
               <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
             </td>
             <td>
-              <p class="status {completed[question.question_id] ? 'answered' : 'unanswered'}">{completed[question.question_id] ? 'Answered' : 'Unanswered'}</p>
+              <p class="status {completed[question.question_id] ? 'complete' : 'incomplete'}">{completed[question.question_id] ? 'Complete' : 'Incomplete'}</p>
               {times[question.question_id]} seconds
             </td>
             <td>
@@ -211,11 +219,11 @@
     </table>
 
     <div class="pagination">
-      <button on:click={() => fetchData(currentPage - 1, questionsPerPage, searchQuery)} disabled={currentPage === 1}>
+      <button on:click={() => handlePageChange(currentPage - 1, questionsPerPage, searchQuery)} disabled={currentPage === 1}>
         Previous
       </button>
       <span>Page {currentPage} of {totalPages}</span>
-      <button on:click={() => fetchData(currentPage + 1, questionsPerPage, searchQuery)} disabled={currentPage === totalPages}>
+      <button on:click={() => handlePageChange(currentPage + 1, questionsPerPage, searchQuery)} disabled={currentPage === totalPages}>
         Next
       </button>
     </div>
@@ -250,11 +258,11 @@
     text-align: left;
   }
 
-  .answered {
+  .complete {
     color: green;
   }
 
-  .unanswered {
+  .incomplete {
     color: red;
   }
 

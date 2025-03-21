@@ -21,7 +21,7 @@
   async function fetchData() {
     try {
       console.log(`Fetching data for question_id=${questionId}`);
-  
+
       // Fetch question text
       const questionResponse = await fetch(`http://localhost:3000/api/question?question_id=${questionId}`);
       if (!questionResponse.ok) {
@@ -29,7 +29,7 @@
       }
       const questionData = await questionResponse.json();
       questionText = questionData.question_text;
-  
+
       // Fetch generations
       const generationsResponse = await fetch(`http://localhost:3000/api/generations?question_id=${questionId}`);
       if (!generationsResponse.ok) {
@@ -37,40 +37,43 @@
       }
       const generationsData = await generationsResponse.json();
       generations = generationsData.generations;
-  
+
       // Initialize selection state
       generations.forEach(gen => selectedGenerations[gen.generation_id] = false);
 
-      // Fetch write in
-      const writeInResponse = await fetch(`http://localhost:3000/api/writeins/latest?question_id=${questionId}`);
-      if (!writeInResponse.ok) {
-        // This needs to be fixed...
-        // if (!writeInResponse.status === 404) {
-        // } else {
-        //   throw new Error(`Error fetching write in! Status: ${writeInResponse.status}`);
-        // }
-      } else {
-        const ratingsData = await writeInResponse.json();
-        saved_writein_text = ratingsData.writein_text;
-        saved_writein_gens = ratingsData.generation_ids;
-        
-        writeinText = saved_writein_text;
-        saved_writein_gens.forEach(index => {
-          if (selectedGenerations.hasOwnProperty(index)) {
-            console.log(index)
-            selectedGenerations[index] = true;
+      // Fetch write-in, allow 404s without stopping the flow
+      try {
+        const writeInResponse = await fetch(`http://localhost:3000/api/writeins/latest?question_id=${questionId}`);
+        if (!writeInResponse.ok) {
+          if (writeInResponse.status !== 404) {
+            throw new Error(`Unexpected write-in error: ${writeInResponse.status}`);
           }
-        });
+        } else {
+          const ratingsData = await writeInResponse.json();
+          saved_writein_text = ratingsData.writein_text;
+          saved_writein_gens = ratingsData.generation_ids;
 
-        answered = true;
+          writeinText = saved_writein_text;
+          saved_writein_gens.forEach(index => {
+            if (selectedGenerations.hasOwnProperty(index)) {
+              selectedGenerations[index] = true;
+            }
+          });
+
+          answered = true;
+        }
+      } catch (writeInErr) {
+        console.warn(`No write-in found or other error: ${writeInErr.message}`);
       }
-  
+
       startTime = Date.now();
       dataLoaded = true;
+
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   }
+
   
   function toggleGenerationSelection(generationId) {
     selectedGenerations[generationId] = !selectedGenerations[generationId];

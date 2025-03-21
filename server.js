@@ -3,7 +3,6 @@ import bodyParser from 'body-parser';
 import mysql from 'mysql2';
 import fs from 'fs/promises';
 import cors from 'cors';
-import { time } from 'console';
 
 const app = express();
 const port = 3000;
@@ -492,6 +491,71 @@ app.get('/api/questions/is-answered', async (req, res) => {
 
   } catch (err) {
     console.error(`[ERROR] Checking is-answered for question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/questions', async (req, res) => {
+  const { question_text } = req.body;
+  if (!question_text) {
+    return res.status(400).json({ message: 'Missing question_text.' });
+  }
+
+  try {
+    const [result] = await db.query(
+      `INSERT INTO questions (question_text) VALUES (?)`,
+      [question_text]
+    );
+    res.status(201).json({ message: 'Question added successfully', question_id: result.insertId });
+  } catch (err) {
+    console.error(`[ERROR] Adding question: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/generations', async (req, res) => {
+  const { question_id, generation_text, model_name } = req.body;
+  if (!question_id || !generation_text || !model_name) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    const [modelRows] = await connection.query(
+      `SELECT model_id FROM models WHERE model_name = ?`,
+      [model_name]
+    );
+
+    let model_id;
+    if (modelRows.length > 0) {
+      model_id = modelRows[0].model_id;
+    } else {
+      const [modelInsert] = await connection.query(
+        `INSERT INTO models (model_name) VALUES (?)`,
+        [model_name]
+      );
+      model_id = modelInsert.insertId;
+    }
+
+    const [genResult] = await connection.query(
+      `INSERT INTO generations (question_id, generation_text, model_id) VALUES (?, ?, ?)`,
+      [question_id, generation_text, model_id]
+    );
+
+    await connection.commit();
+    connection.release();
+
+    res.status(201).json({
+      message: 'Generation added successfully',
+      generation_id: genResult.insertId,
+      model_id
+    });
+  } catch (err) {
+    await connection.rollback();
+    connection.release();
+    console.error(`[ERROR] Adding generation: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });

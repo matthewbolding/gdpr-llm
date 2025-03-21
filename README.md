@@ -1,18 +1,18 @@
 # GDPR x LLM
 
 To Do:
-- For 404 error handling on write in page.
-- *Replace progress bar.*
-  - *Complete/Incomplete indicator on landing page.*
-  - *Time spent on question.*
+- ~~For 404 error handling on write in page.~~
+- ~~*Replace progress bar.*~~
+  - ~~*Complete/Incomplete indicator on landing page.*~~
+  - ~~*Time spent on question.*~~
 - *User paradigm.*
 - Unify formatting across all pages.
 - *Randomize generator numbers.*
-- Ingest API endpoints.
+- ~~Ingest API endpoints.~~
 - *Time tracking override.*
-- *Implement time tracking.*
-  - *Add duration columns to `writeins` and `ratings` tables.*
-  - *Add timers on front end.*
+- ~~*Implement time tracking.*~~
+  - ~~*Add duration columns to `writeins` and `ratings` tables.*~~
+  - ~~*Add timers on front end.*~~
 
 ## Developing
 After cloning the repository, run `npm install` to install the needed dependencies.
