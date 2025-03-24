@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { debounce } from 'lodash-es';
+  import { selectedUserId } from '$lib/stores/user';
 
   let questions = [];
+  let users = [];
   let currentPage = 1;
   let totalPages = 1;
   let questionsPerPage = 5;
@@ -134,12 +136,24 @@
     console.log("Completion statuses:", completed);
   }
 
+  async function fetchUsers() {
+    try {
+      const userRes = await fetch('http://localhost:3000/api/users');
+      if (!userRes.ok) throw new Error('Failed to fetch users.')
+      users = await userRes.json();
+    } catch (err) {
+      console.error('Error fetching users: ', err)
+    }
+  }
+
   // Load data on page mount
   onMount(async () => {
+    await fetchUsers();
     await fetchData();
     await fetchHasWriteIns();
     await fetchTimes();
     await fetchCompletion();
+    console.log(users)
     dataLoaded = true;
   });
 
@@ -151,7 +165,7 @@
     goto(`/questions/${questionId}/write-in`)
   }
 
-  function updateQuestionsPerPage(event) {
+  function handleQuestionsPerPageChange(event) {
     questionsPerPage = parseInt(event.target.value);
     fetchData(1, questionsPerPage, searchQuery);
   }
@@ -161,35 +175,54 @@
     debouncedSearch(1, questionsPerPage, searchQuery);
   }
 
+  function handleUserChange(event) {
+    selectedUserId.set(parseInt(event.target.value))
+  }
+
   async function handlePageChange(newPage, questionsPerPage, searchQuery) {
     dataLoaded = false;
     await fetchData(newPage, questionsPerPage, searchQuery);
+    await fetchData();
     await fetchHasWriteIns();
     await fetchTimes();
     await fetchCompletion();
     dataLoaded = true;
   }
+
+  // async function handleUser
 </script>
 
 <main>
-  <h1>Annotation Framework</h1>
-  <p>Welcome, Matthew Bolding!</p>
-
-  <div class="search-bar">
-    <input type="text" bind:value={searchQuery} placeholder="Search for a question..." on:input={handleSearch} />
-  </div>
-
   {#if !dataLoaded}
     <p>Loading data...</p>
   {:else}
+    <h1>Annotation Framework</h1>
+    <!-- 
+    {#if !selectedUserId}
+      <p>Welcome, {users[selectedUserId].username}!</p>
+    {/if} -->
+
+    <label for="user-select">Select your user:</label>
+    <select id="user-select" on:change={handleUserChange}>
+      <option disabled selected value="">-- Select a user --</option>
+      {#each users as user}
+        <option value={user.user_id}>{user.username}</option>
+      {/each}
+    </select>
+
     <div class="controls">
       <label for="questions-per-page">Questions per page:</label>
-      <select id="questions-per-page" bind:value={questionsPerPage} on:change={updateQuestionsPerPage}>
-        <option value="5">5</option>
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="50">50</option>
+      <select id="questions-per-page" bind:value={questionsPerPage} on:change={handleQuestionsPerPageChange}>
+        <option disabled value="">-- Select entries per page --</option>
+        <option value={5}>5</option>
+        <option value={10}>10</option>
+        <option value={20}>20</option>
+        <option value={50}>50</option>
       </select>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" bind:value={searchQuery} placeholder="Search for a question..." on:input={handleSearch} />
     </div>
 
     <table>

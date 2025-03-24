@@ -4,5 +4,7 @@ DROP TABLE IF EXISTS writein_generations;
 DROP TABLE IF EXISTS writeins;
 DROP TABLE IF EXISTS ratings;
 DROP TABLE IF EXISTS generations;
+DROP TABLE IF EXISTS user_questions;
 DROP TABLE IF EXISTS questions;
 DROP TABLE IF EXISTS models;
+DROP TABLE IF EXISTS users;

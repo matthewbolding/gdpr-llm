@@ -38,35 +38,59 @@ const db = mysql.createPool({
 
 // API Endpoint to fetch paginated questions
 app.get('/api/questions', async (req, res) => {
-  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);  // Ensure page is at least 1
-  const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1); // Ensure limit is at least 1
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
   const offset = (page - 1) * limit;
   const searchQuery = req.query.search ? `%${req.query.search}%` : '%';
+  const userId = parseInt(req.query.user_id, 10);
 
   try {
-    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'}`);
+    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'} and user_id: ${userId || 'None'}`);
 
-    // Fetch paginated questions + total count in one query with search functionality
-    const query = `
-      SELECT q.*, (SELECT COUNT(*) FROM questions WHERE question_text LIKE ?) AS total_count
-      FROM questions q
-      WHERE q.question_text LIKE ?
-      ORDER BY q.question_id
-      LIMIT ? OFFSET ?;
-    `;
+    let query;
+    let countQuery;
+    const params = [];
+    const countParams = [];
 
-    const [rows] = await db.query(query, [searchQuery, searchQuery, limit, offset]);
+    if (!isNaN(userId)) {
+      query = `
+        SELECT q.*, (
+          SELECT COUNT(*)
+          FROM questions q2
+          JOIN user_questions uq2 ON q2.question_id = uq2.question_id
+          WHERE uq2.user_id = ? AND q2.question_text LIKE ?
+        ) AS total_count
+        FROM questions q
+        JOIN user_questions uq ON q.question_id = uq.question_id
+        WHERE uq.user_id = ? AND q.question_text LIKE ?
+        ORDER BY q.question_id
+        LIMIT ? OFFSET ?;
+      `;
+      params.push(userId, searchQuery, userId, searchQuery, limit, offset);
+    } else {
+      query = `
+        SELECT q.*, (
+          SELECT COUNT(*) FROM questions WHERE question_text LIKE ?
+        ) AS total_count
+        FROM questions q
+        WHERE q.question_text LIKE ?
+        ORDER BY q.question_id
+        LIMIT ? OFFSET ?;
+      `;
+      params.push(searchQuery, searchQuery, limit, offset);
+    }
+
+    const [rows] = await db.query(query, params);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: 'No questions found.' });
     }
 
-    // Extract total count from the first row
     const total = rows.length > 0 ? rows[0].total_count : 0;
     const totalPages = Math.ceil(total / limit);
 
     res.json({
-      questions: rows.map(({ total_count, ...q }) => q), // Remove total_count from response
+      questions: rows.map(({ total_count, ...q }) => q),
       total,
       totalPages,
       currentPage: page
@@ -105,13 +129,28 @@ app.get('/api/question', async (req, res) => {
 
 app.get('/api/generations', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
+  const userId = parseInt(req.query.user_id, 10);
+
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
+  if (isNaN(userId)) {
+    return res.status(400).json({ message: 'Missing or invalid user_id' });
+  }
 
   try {
-    console.log(`[GET] /api/generations?question_id=${questionId} - Fetching generations`);
-    
+    console.log(`[GET] /api/generations?question_id=${questionId}&user_id=${userId} - Checking assignment and fetching generations`);
+
+    // Check if the user is assigned to the question
+    const [assignmentCheck] = await db.query(
+      `SELECT 1 FROM user_questions WHERE question_id = ? AND user_id = ? LIMIT 1`,
+      [questionId, userId]
+    );
+
+    if (assignmentCheck.length === 0) {
+      return res.status(403).json({ message: 'Forbidden: You are not assigned to this question.' });
+    }
+
     const query = `
       SELECT g.generation_id, g.generation_text, m.model_name
       FROM generations g
@@ -119,7 +158,7 @@ app.get('/api/generations', async (req, res) => {
       WHERE g.question_id = ?
       ORDER BY g.generation_id;
     `;
-    
+
     const [rows] = await db.query(query, [questionId]);
 
     if (rows.length === 0) {
@@ -173,9 +212,9 @@ app.get('/api/pairs', async (req, res) => {
 });
 
 app.post('/api/rate', async (req, res) => {
-  const { question_id, gen_1_id, gen_2_id, selection, time_spent } = req.body;
+  const { question_id, gen_1_id, gen_2_id, selection, time_spent, user_id } = req.body;
   
-  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent) {
+  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent, user_id) {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
 
@@ -193,12 +232,11 @@ app.post('/api/rate', async (req, res) => {
   }
 
   try {
-    console.log(`[POST] /api/rate - Saving rating for question ${question_id}, pair (${gen_1_id}, ${gen_2_id})`);
+    console.log(`[POST] /api/rate - Saving rating for user ${user_id}, question ${question_id}, pair (${gen_1_id}, ${gen_2_id})`);
   
     const query = `
-      INSERT INTO ratings (question_id, gen_id_1, gen_id_2, user_selection, time_spent_seconds)
-      VALUES (?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE user_selection = VALUES(user_selection), time_spent_seconds = VALUES(time_spent_seconds);
+      INSERT INTO ratings (question_id, gen_id_1, gen_id_2, user_selection, time_spent_seconds, user_id)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
   
     await db.query(query, [question_id, gen_1_id, gen_2_id, selection, time_spent]);
@@ -556,6 +594,16 @@ app.post('/api/generations', async (req, res) => {
     await connection.rollback();
     connection.release();
     console.error(`[ERROR] Adding generation: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT * FROM users ORDER BY username`);
+    res.json(rows);
+  } catch (err) {
+    console.error(`[ERROR] Fetching users: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
