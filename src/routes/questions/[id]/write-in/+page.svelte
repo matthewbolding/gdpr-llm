@@ -2,6 +2,13 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { selectedUserId } from '$lib/stores/user';
+
+  let userId = 0;
+
+  selectedUserId.subscribe(value => {
+    userId = value;
+  })();
   
   let questionId;
   let questionText = '';
@@ -31,7 +38,7 @@
       questionText = questionData.question_text;
 
       // Fetch generations
-      const generationsResponse = await fetch(`http://localhost:3000/api/generations?question_id=${questionId}`);
+      const generationsResponse = await fetch(`http://localhost:3000/api/generations?question_id=${questionId}&user_id=${userId}`);
       if (!generationsResponse.ok) {
         throw new Error(`Error fetching generations! Status: ${generationsResponse.status}`);
       }
@@ -94,7 +101,8 @@
             generation_id: parseInt(generation_id),
             used
           })),
-          time_spent: timeSpent
+          time_spent: timeSpent,
+          user_id: userId
         })
       });
   

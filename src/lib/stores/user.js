@@ -1,15 +1,14 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-let initialValue = null;
+let initialValue = 1;
 
 if (browser) {
   const stored = localStorage.getItem('selectedUserId');
-  initialValue = stored ? parseInt(stored) : null;
+  initialValue = stored ? parseInt(stored) : 1;
 }
 
 export const selectedUserId = writable(initialValue);
-
 
 if (browser) {
   selectedUserId.subscribe(value => {

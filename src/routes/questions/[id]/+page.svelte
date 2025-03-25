@@ -2,6 +2,13 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+  import { selectedUserId } from '$lib/stores/user';
+
+  let userId = 0;
+
+  selectedUserId.subscribe(value => {
+    userId = value;
+  })();
 
   let questionId;
   let pairs = [];
@@ -81,7 +88,8 @@
           gen_1_id: pairs[currentIndex].gen_1_id,
           gen_2_id: pairs[currentIndex].gen_2_id,
           selection: local_user_selection,
-          time_spent: timeSpent
+          time_spent: timeSpent,
+          user_id: userId
         })
       });
 
@@ -152,6 +160,7 @@
     <p>Loading data...</p>
   {:else}
     <h1>{questionId}: {questionText}</h1>
+    <h1>User ID: {userId}</h1>
 
     {#if pairs.length > 0}
       <div class="container">

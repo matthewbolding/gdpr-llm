@@ -1,5 +1,13 @@
 CREATE DATABASE IF NOT EXISTS gdpr;
-USE grpd;
+USE gdpr;
+
+CREATE TABLE users (
+  user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE
+);
+
+INSERT INTO users (username)
+VALUES ('Administrator');
 
 CREATE TABLE questions (
     question_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -8,10 +16,6 @@ CREATE TABLE questions (
 
 CREATE INDEX idx_question_text ON questions(question_text(255));
 
-CREATE TABLE users (
-  user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(100) NOT NULL UNIQUE
-);
 
 CREATE TABLE user_questions (
   user_id BIGINT UNSIGNED NOT NULL,
@@ -21,6 +25,17 @@ CREATE TABLE user_questions (
   FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
 
+DELIMITER $$
+
+CREATE TRIGGER after_insert_question_assign_admin
+AFTER INSERT ON questions
+FOR EACH ROW
+BEGIN
+  INSERT INTO user_questions (user_id, question_id)
+  VALUES (1, NEW.question_id);
+END$$
+
+DELIMITER ;
 
 CREATE TABLE models (
     model_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

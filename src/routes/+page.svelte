@@ -4,12 +4,19 @@
   import { debounce } from 'lodash-es';
   import { selectedUserId } from '$lib/stores/user';
 
+  let userId = 0;
+
+  selectedUserId.subscribe(value => {
+    userId = value;
+  })();
+
   let questions = [];
   let users = [];
   let currentPage = 1;
   let totalPages = 1;
   let questionsPerPage = 5;
-  let searchQuery = ''; // User input for search
+  let searchQuery = '';
+  let username = '';
   let hasWriteIns = {};
   let times = {}
   let completed = {}
@@ -26,7 +33,7 @@
       dataLoaded = false;
 
       // Fetch questions with search parameter
-      const response = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      const response = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&user_id=${userId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
@@ -153,7 +160,6 @@
     await fetchHasWriteIns();
     await fetchTimes();
     await fetchCompletion();
-    console.log(users)
     dataLoaded = true;
   });
 
@@ -175,21 +181,22 @@
     debouncedSearch(1, questionsPerPage, searchQuery);
   }
 
-  function handleUserChange(event) {
-    selectedUserId.set(parseInt(event.target.value))
+  async function handleUserChange(event) {
+    userId = parseInt(event.target.value);
+    selectedUserId.set(userId)
+
+    await fetchData(currentPage, questionsPerPage, searchQuery);
   }
 
   async function handlePageChange(newPage, questionsPerPage, searchQuery) {
     dataLoaded = false;
     await fetchData(newPage, questionsPerPage, searchQuery);
-    await fetchData();
     await fetchHasWriteIns();
     await fetchTimes();
     await fetchCompletion();
     dataLoaded = true;
   }
 
-  // async function handleUser
 </script>
 
 <main>
@@ -197,13 +204,9 @@
     <p>Loading data...</p>
   {:else}
     <h1>Annotation Framework</h1>
-    <!-- 
-    {#if !selectedUserId}
-      <p>Welcome, {users[selectedUserId].username}!</p>
-    {/if} -->
 
     <label for="user-select">Select your user:</label>
-    <select id="user-select" on:change={handleUserChange}>
+    <select id="user-select" bind:value={userId} on:change={handleUserChange}>
       <option disabled selected value="">-- Select a user --</option>
       {#each users as user}
         <option value={user.user_id}>{user.username}</option>

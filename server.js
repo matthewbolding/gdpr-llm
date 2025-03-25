@@ -42,7 +42,7 @@ app.get('/api/questions', async (req, res) => {
   const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
   const offset = (page - 1) * limit;
   const searchQuery = req.query.search ? `%${req.query.search}%` : '%';
-  const userId = parseInt(req.query.user_id, 10);
+  const userId = parseInt(req.query.user_id, 10) || 1;
 
   try {
     console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'} and user_id: ${userId || 'None'}`);
@@ -51,34 +51,25 @@ app.get('/api/questions', async (req, res) => {
     let countQuery;
     const params = [];
     const countParams = [];
-
-    if (!isNaN(userId)) {
-      query = `
-        SELECT q.*, (
-          SELECT COUNT(*)
-          FROM questions q2
-          JOIN user_questions uq2 ON q2.question_id = uq2.question_id
-          WHERE uq2.user_id = ? AND q2.question_text LIKE ?
-        ) AS total_count
-        FROM questions q
-        JOIN user_questions uq ON q.question_id = uq.question_id
-        WHERE uq.user_id = ? AND q.question_text LIKE ?
-        ORDER BY q.question_id
-        LIMIT ? OFFSET ?;
-      `;
-      params.push(userId, searchQuery, userId, searchQuery, limit, offset);
-    } else {
-      query = `
-        SELECT q.*, (
-          SELECT COUNT(*) FROM questions WHERE question_text LIKE ?
-        ) AS total_count
-        FROM questions q
-        WHERE q.question_text LIKE ?
-        ORDER BY q.question_id
-        LIMIT ? OFFSET ?;
-      `;
-      params.push(searchQuery, searchQuery, limit, offset);
+    
+    if (isNaN(userId)) {
+      userId = 1;
     }
+
+    query = `
+      SELECT q.*, (
+        SELECT COUNT(*)
+        FROM questions q2
+        JOIN user_questions uq2 ON q2.question_id = uq2.question_id
+        WHERE uq2.user_id = ? AND q2.question_text LIKE ?
+      ) AS total_count
+      FROM questions q
+      JOIN user_questions uq ON q.question_id = uq.question_id
+      WHERE uq.user_id = ? AND q.question_text LIKE ?
+      ORDER BY q.question_id
+      LIMIT ? OFFSET ?;
+    `;
+    params.push(userId, searchQuery, userId, searchQuery, limit, offset);
 
     const [rows] = await db.query(query, params);
 
@@ -214,7 +205,7 @@ app.get('/api/pairs', async (req, res) => {
 app.post('/api/rate', async (req, res) => {
   const { question_id, gen_1_id, gen_2_id, selection, time_spent, user_id } = req.body;
   
-  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent, user_id) {
+  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent, !user_id) {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
 
@@ -239,7 +230,7 @@ app.post('/api/rate', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `;
   
-    await db.query(query, [question_id, gen_1_id, gen_2_id, selection, time_spent]);
+    await db.query(query, [question_id, gen_1_id, gen_2_id, selection, time_spent, user_id]);
   
     res.status(200).json({ message: 'Rating submitted successfully' });
   } catch (err) {
@@ -339,8 +330,8 @@ app.get('/api/has-writein', async (req, res) => {
 });
 
 app.post('/api/writeins', async (req, res) => {
-  const { question_id, writein_text, generations, time_spent } = req.body;
-  if (!question_id || !writein_text || !Array.isArray(generations)) {
+  const { question_id, writein_text, generations, time_spent, user_id } = req.body;
+  if (!question_id || !writein_text || !Array.isArray(generations), !user_id) {
     return res.status(400).json({ message: 'Missing required fields or invalid format.' });
   }
 
@@ -348,12 +339,12 @@ app.post('/api/writeins', async (req, res) => {
   await connection.beginTransaction();
 
   try {
-    console.log(`[POST] /api/writeins - Submitting write-in for question ${question_id}`);
+    console.log(`[POST] /api/writeins - Submitting write-in for question ${question_id} from user_id ${user_id}`);
     
     // Insert the write-in response
     const [writeinResult] = await connection.query(
-      `INSERT INTO writeins (question_id, writein_text, time_spent_seconds) VALUES (?, ?, ?)`,
-      [question_id, writein_text, time_spent]
+      `INSERT INTO writeins (question_id, writein_text, time_spent_seconds, user_id) VALUES (?, ?, ?, ?)`,
+      [question_id, writein_text, time_spent, user_id]
     );
     const writein_id = writeinResult.insertId;
 
