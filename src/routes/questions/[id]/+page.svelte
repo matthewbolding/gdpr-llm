@@ -160,7 +160,7 @@
     <p>Loading data...</p>
   {:else}
     <h1>{questionId}: {questionText}</h1>
-    <h1>User ID: {userId}</h1>
+    <!-- <h1>User ID: {userId}</h1> -->
 
     {#if pairs.length > 0}
       <div class="container">

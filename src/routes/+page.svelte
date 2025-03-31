@@ -171,9 +171,10 @@
     goto(`/questions/${questionId}/write-in`)
   }
 
-  function handleQuestionsPerPageChange(event) {
+  async function handleQuestionsPerPageChange(event) {
     questionsPerPage = parseInt(event.target.value);
-    fetchData(1, questionsPerPage, searchQuery);
+    await fetchData(1, questionsPerPage, searchQuery);
+    await fetchTimes();
   }
 
   function handleSearch(event) {
@@ -186,6 +187,7 @@
     selectedUserId.set(userId)
 
     await fetchData(currentPage, questionsPerPage, searchQuery);
+    await fetchTimes();
   }
 
   async function handlePageChange(newPage, questionsPerPage, searchQuery) {

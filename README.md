@@ -17,7 +17,9 @@ To Do:
 ## Developing
 After cloning the repository, run `npm install` to install the needed dependencies.
 
+You may launch the backend server and the development webpage via the following commands.
 ```bash
+node server.js
 npm run dev -- --open
 ```
 
