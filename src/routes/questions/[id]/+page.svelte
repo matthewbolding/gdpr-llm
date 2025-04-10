@@ -209,9 +209,9 @@
             <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_no_pref"/>
             Both Equal
           </label>
-
-          <button class="submit-btn" on:click={submitSelection}>Submit</button>
-
+          <br>
+          <button class="button" on:click={submitSelection}>Submit</button>
+          <br>
           {#if answered}
             <p>Your evaluation is...</p>
 
@@ -243,11 +243,11 @@
 
       <!-- Navigation Buttons -->
       <div class="navigation">
-        <button on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
-        <button on:click={goHome}>Home</button>
+        <button class="button" on:click={previousPair} disabled={currentIndex === 0}>Previous Pair</button>
+        <button class="button" on:click={goHome}>Home</button>
         <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
-        <button on:click={() => goToWriteIn(questionId)} disabled={!writein_page}>Write-In</button>
-        <button on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
+        <button class="button" on:click={() => goToWriteIn(questionId)} disabled={!writein_page}>Write-In</button>
+        <button class="button" on:click={nextPair} disabled={currentIndex === pairs.length - 1}>Next Pair</button>
       </div>
 
     {:else}
@@ -263,7 +263,7 @@
     gap: 20px;
     align-items: start;
     text-align: left;
-    height: calc(100vh - 200px); /* Adjust based on header/footer size */
+    height: calc(100vh - 200px);
   }
 
   .generation {
@@ -300,17 +300,6 @@
     margin-top: 10px;
   }
 
-  .submit-btn {
-    margin-top: 10px;
-    margin-bottom: 10px;
-    background-color: #007BFF;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    align-content: center;
-  }
-
   .navigation {
     margin-top: 20px;
     display: flex;
@@ -321,5 +310,29 @@
   button {
     padding: 10px;
     cursor: pointer;
+  }
+
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border: none;
+    background-color: #007BFF;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+  }
+
+  button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+
+  button:disabled {
+    background-color: #CCCCCC;
+    cursor: not-allowed;
+  }
+
+  :global(body) {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 </style>

@@ -27,20 +27,23 @@
 
   // Fetch questions with optional search query
   async function fetchData(page = 1, limit = questionsPerPage, search = '') {
-    try {
-      console.log(`Fetching questions for page ${page}, limit ${limit}, search: "${search}"...`);
-      
-      dataLoaded = false;
-
-      // Fetch questions with search parameter
+    try {    
       const response = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&user_id=${userId}`);
+
+      if (response.status === 404) {
+        // No questions found
+        questions = [];
+        totalPages = 1;
+        currentPage = 1;
+        dataLoaded = true;
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      
-      const data = await response.json();
-      console.log('Questions API Response:', data);
 
+      const data = await response.json();
       questions = data.questions;
       totalPages = data.totalPages;
       currentPage = data.currentPage;
@@ -48,8 +51,11 @@
       dataLoaded = true;
     } catch (error) {
       console.error('Error fetching data:', error);
+      dataLoaded = true; // Prevents infinite loading in case of error
+      questions = [];
     }
   }
+
 
   async function fetchHasWriteIns() {
     try {
@@ -202,70 +208,89 @@
 </script>
 
 <main>
-  {#if !dataLoaded}
-    <p>Loading data...</p>
-  {:else}
-    <h1>Annotation Framework</h1>
-
-    <label for="user-select">Select your user:</label>
-    <select id="user-select" bind:value={userId} on:change={handleUserChange}>
-      <option disabled selected value="">-- Select a user --</option>
-      {#each users as user}
-        <option value={user.user_id}>{user.username}</option>
-      {/each}
-    </select>
-
-    <div class="controls">
-      <label for="questions-per-page">Questions per page:</label>
-      <select id="questions-per-page" bind:value={questionsPerPage} on:change={handleQuestionsPerPageChange}>
-        <option disabled value="">-- Select entries per page --</option>
-        <option value={5}>5</option>
-        <option value={10}>10</option>
-        <option value={20}>20</option>
-        <option value={50}>50</option>
-      </select>
-    </div>
-
-    <div class="search-bar">
-      <input type="text" bind:value={searchQuery} placeholder="Search for a question..." on:input={handleSearch} />
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Question</th>
-          <th>Status</th>
-          <th>Write-In</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each questions as question}
+  <div class="container">
+    {#if !dataLoaded}
+      <p>Loading data...</p>
+    {:else}
+      <div class="top-controls">
+        <h1>Annotation Framework</h1>
+    
+        <div class="user-dropdown">
+          <label for="user-select">User:</label>
+          <select
+            id="user-select"
+            aria-label="Select user"
+            bind:value={userId}
+            on:change={handleUserChange}>
+            <option disabled selected value="">-- Select a user --</option>
+            {#each users as user}
+              <option value={user.user_id}>{user.username}</option>
+            {/each}
+          </select>
+        </div>
+        
+    
+        <div class="search-bar">
+          <input
+            type="text"
+            aria-label="Search for a question"
+            placeholder="Search..."
+            bind:value={searchQuery}
+            on:input={handleSearch} />
+        </div>
+    
+        <div class="per-page-control">
+          <label for="questions-per-page">Questions/Page:</label>
+          <select
+            id="questions-per-page"
+            aria-label="Select number of questions per page"
+            bind:value={questionsPerPage}
+            on:change={handleQuestionsPerPageChange}>
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+      </div>
+  
+      <table>
+        <thead>
           <tr>
-            <td>
-              <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
-            </td>
-            <td>
-              <p class="status {completed[question.question_id] ? 'complete' : 'incomplete'}">{completed[question.question_id] ? 'Complete' : 'Incomplete'}</p>
-              {times[question.question_id]} seconds
-            </td>
-            <td>
-              <button on:click={() => goToWriteIn(question.question_id)} disabled={!hasWriteIns[question.question_id]}>Go</button>
-            </td>
+            <th>Question</th>
+            <th>Status</th>
+            <th>Write-In</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {#each questions as question}
+            <tr>
+              <td>
+                <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
+              </td>
+              <td>
+                <p class="status {completed[question.question_id] ? 'complete' : 'incomplete'}">{completed[question.question_id] ? 'Complete' : 'Incomplete'}</p>
+                {times[question.question_id]} seconds
+              </td>
+              <td>
+                <button on:click={() => goToWriteIn(question.question_id)} disabled={!hasWriteIns[question.question_id]}>Go</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
 
-    <div class="pagination">
-      <button on:click={() => handlePageChange(currentPage - 1, questionsPerPage, searchQuery)} disabled={currentPage === 1}>
-        Previous
-      </button>
-      <span>Page {currentPage} of {totalPages}</span>
-      <button on:click={() => handlePageChange(currentPage + 1, questionsPerPage, searchQuery)} disabled={currentPage === totalPages}>
-        Next
-      </button>
-    </div>
-  {/if}
+      <div class="pagination">
+        <button on:click={() => handlePageChange(currentPage - 1, questionsPerPage, searchQuery)} disabled={currentPage === 1}>
+          Previous
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button on:click={() => handlePageChange(currentPage + 1, questionsPerPage, searchQuery)} disabled={currentPage === totalPages}>
+          Next
+        </button>
+      </div>
+    {/if}
+  </div>
 </main>
 
 <style>
@@ -281,8 +306,45 @@
     border-radius: 5px;
   }
 
-  .controls {
-    margin-bottom: 1rem;
+.top-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 10;
+  padding: 1rem 0;
+  border-bottom: 1px solid #ccc;
+}
+
+
+  .top-controls h1 {
+    margin: 0;
+    align-self: center;
+  }
+
+  .user-dropdown,
+  .per-page-control,
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .user-dropdown,
+  .per-page-control {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .container {
+    margin: 0 auto;
+    padding: 1rem;
   }
 
   table {
@@ -311,11 +373,13 @@
   
   button {
     padding: 0.5rem 1rem;
+    font-size: 1rem;
     border: none;
     background-color: #007BFF;
     color: white;
     cursor: pointer;
     border-radius: 5px;
+    transition: background-color 0.2s ease;
   }
 
   button:disabled {
@@ -323,10 +387,19 @@
     cursor: not-allowed;
   }
 
+  button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+
   .pagination {
     margin-top: 1rem;
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 10px;
+  }
+
+  :global(body) {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 </style>

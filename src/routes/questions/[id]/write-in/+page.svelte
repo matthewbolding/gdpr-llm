@@ -149,19 +149,29 @@
         <p>Select the generators whose outputs from which you intend to use to create your own answer to the question. You may only view the generator's outputs you have selected. You don't have to use any generators if no part of any generators are usable.</p>
         {#each generations as gen}
           <label>
-            <input type="checkbox" bind:checked={selectedGenerations[gen.generation_id]} />
+            <input
+              type="checkbox"
+              bind:checked={selectedGenerations[gen.generation_id]}
+              aria-label="Select Generator {gen.generation_id}"
+            />
             Generator {gen.generation_id}
           </label>
         {/each}
-        <textarea bind:value={writeinText} placeholder="Write your entry here..."></textarea>
-        <button on:click={submitWriteIn}>Submit</button>
+        <textarea
+          bind:value={writeinText}
+          placeholder="Write your entry here..."
+          aria-label="Write-in text area">
+        </textarea>
+        <br>
+        <br>
+        <button class="button" on:click={submitWriteIn}>Submit</button>
       </div>
     </div>
   
     <div class="navigation">
-      <button on:click={goHome}>Home</button>
+      <button class="button" on:click={goHome}>Home</button>
       <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
-      <button on:click={() => goToQuestion(questionId)}>Return</button>
+      <button class="button" on:click={() => goToQuestion(questionId)}>Return</button>
     </div>
   {/if}
 </main>
@@ -195,6 +205,7 @@
     width: 100%;
     height: 100px;
     margin-top: 10px;
+    font-family: inherit;
   }
   
   .navigation {
@@ -219,8 +230,27 @@
   }
   
   button {
-    padding: 10px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border: none;
+    background-color: #007BFF;
+    color: white;
     cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+  }
+  
+  button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+  
+  button:disabled {
+    background-color: #CCCCCC;
+    cursor: not-allowed;
+  }
+
+  :global(body) {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 </style>
   

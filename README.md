@@ -5,17 +5,18 @@ To Do:
 - ~~*Replace progress bar.*~~
   - ~~*Complete/Incomplete indicator on landing page.*~~
   - ~~*Time spent on question.*~~
-- *User paradigm.*
-- Unify formatting across all pages.
+- ~~*User paradigm.*~~
+- ~~Unify formatting across all pages.~~
 - *Randomize generator numbers.*
 - ~~Ingest API endpoints.~~
 - *Time tracking override.*
+  - Time tracking override is not being implemented in this current iteration.
 - ~~*Implement time tracking.*~~
   - ~~*Add duration columns to `writeins` and `ratings` tables.*~~
   - ~~*Add timers on front end.*~~
 
 ## Developing
-After cloning the repository, run `npm install` to install the needed dependencies.
+The Node.js version used for this project is v22. Follow instructions [here](https://nodejs.org/en/download/) to install. After cloning the repository, run `npm install` to install the needed dependencies.
 
 You may launch the backend server and the development webpage via the following commands.
 ```bash
@@ -43,3 +44,5 @@ The purpose of `reset_user_content.sql` is to delete all user generated rows in 
 
 ## Hosting
 The current planned iteration of this tool does not provide for robust security. Therefore, as a broad safeguard against unauthorized access, the website as it's hosted will have [basic HTTP authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/).
+
+More hosting information forthcoming...
