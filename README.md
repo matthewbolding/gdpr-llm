@@ -7,7 +7,7 @@ To Do:
   - ~~*Time spent on question.*~~
 - ~~*User paradigm.*~~
 - ~~Unify formatting across all pages.~~
-- *Randomize generator numbers.*
+- ~~*Randomize generator numbers.*~~
 - ~~Ingest API endpoints.~~
 - *Time tracking override.*
   - Time tracking override is not being implemented in this current iteration.
