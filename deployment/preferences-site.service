@@ -1,0 +1,13 @@
+[Unit]
+Description=SvelteKit Preferences App (Port 3000)
+After=network.target
+
+[Service]
+WorkingDirectory=/path/to/gdpr-llm
+ExecStart=/path/to/node build/index.js
+Restart=on-failure
+User=your_username
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target

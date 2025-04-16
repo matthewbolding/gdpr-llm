@@ -33,7 +33,7 @@
       console.log(`Fetching data for question_id=${questionId}`);
 
       // Fetch question text
-      const questionResponse = await fetch(`http://localhost:3000/api/question?question_id=${questionId}`);
+      const questionResponse = await fetch(`/api/question?question_id=${questionId}`);
       if (!questionResponse.ok) {
         throw new Error(`Error fetching question text! Status: ${questionResponse.status}`);
       }
@@ -41,7 +41,7 @@
       questionText = questionData.question_text;
 
       // Fetch pairs
-      const pairsResponse = await fetch(`http://localhost:3000/api/pairs?question_id=${questionId}`);
+      const pairsResponse = await fetch(`/api/pairs?question_id=${questionId}`);
       if (!pairsResponse.ok) {
         throw new Error(`Error fetching pairs! Status: ${pairsResponse.status}`);
       }
@@ -49,7 +49,7 @@
       pairs = pairsData.pairs;
 
       // Fetch whether question has writein
-      const writeInResponse = await fetch(`http://localhost:3000/api/has-writein?question_id=${questionId}`);
+      const writeInResponse = await fetch(`/api/has-writein?question_id=${questionId}`);
       if (!writeInResponse.ok) {
         throw new Error(`Error fetching pairs! Status: ${writeInResponse.status}`);
       }
@@ -57,7 +57,7 @@
       writein_page = writeInResponseData.has_writein;
 
       // Fetch ratings
-      const ratingsResponse = await fetch(`http://localhost:3000/api/ratings?question_id=${questionId}`);
+      const ratingsResponse = await fetch(`/api/ratings?question_id=${questionId}`);
       if (!ratingsResponse.ok) {
         if (ratingsResponse.status === 404) {
           ratings = []; // No ratings found, keep it an empty array
@@ -80,7 +80,7 @@
     let timeSpent = Math.floor((endTime - startTime) / 1000);
 
     try {
-      const response = await fetch('http://localhost:3000/api/rate', {
+      const response = await fetch('/api/rate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

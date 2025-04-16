@@ -28,7 +28,7 @@
   // Fetch questions with optional search query
   async function fetchData(page = 1, limit = questionsPerPage, search = '') {
     try {    
-      const response = await fetch(`http://localhost:3000/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&user_id=${userId}`);
+      const response = await fetch(`/api/questions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&user_id=${userId}`);
 
       if (response.status === 404) {
         // No questions found
@@ -66,7 +66,7 @@
       // Create an array of fetch promises for all question IDs
       const writeInPromises = questions.map(async (question) => {
         try {
-          const response = await fetch(`http://localhost:3000/api/has-writein?question_id=${question.question_id}`);
+          const response = await fetch(`/api/has-writein?question_id=${question.question_id}`);
           if (!response.ok) throw new Error(`Error fetching write-in status for question ${question.question_id}`);
 
           const data = await response.json();
@@ -102,8 +102,8 @@
     
       try {
         const [ratingRes, writeinRes] = await Promise.all([
-          fetch(`http://localhost:3000/api/time/ratings?question_id=${questionId}`),
-          fetch(`http://localhost:3000/api/time/writeins?question_id=${questionId}`)
+          fetch(`/api/time/ratings?question_id=${questionId}`),
+          fetch(`/api/time/writeins?question_id=${questionId}`)
         ]);
       
         const ratingData = await ratingRes.json();
@@ -131,7 +131,7 @@
       const questionId = question.question_id;
 
       try {
-        const response = await fetch(`http://localhost:3000/api/questions/is-answered?question_id=${questionId}`);
+        const response = await fetch(`/api/questions/is-answered?question_id=${questionId}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch completion status for question ${questionId}`);
         }
@@ -151,7 +151,7 @@
 
   async function fetchUsers() {
     try {
-      const userRes = await fetch('http://localhost:3000/api/users');
+      const userRes = await fetch('/api/users');
       if (!userRes.ok) throw new Error('Failed to fetch users.')
       users = await userRes.json();
     } catch (err) {

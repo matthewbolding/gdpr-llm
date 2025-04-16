@@ -5,14 +5,25 @@ import fs from 'fs/promises';
 import cors from 'cors';
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 // Middleware for JSON body parsing
 app.use(bodyParser.json());
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://preferences.gdpr-llm.org'
+];
+
 app.use(cors({
-  origin: 'http://localhost:5173', // Your Svelte app's URL
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 
 // Load database credentials from a configuration file using async/await
@@ -290,7 +301,7 @@ app.get('/api/has-writein', async (req, res) => {
     console.log(`[GET] /api/has-writein?question_id=${questionId} - Checking if write-up is possible`);
     
     // Fetch all generation pairs for the question
-    const pairsResponse = await fetch(`http://localhost:3000/api/pairs?question_id=${questionId}`);
+    const pairsResponse = await fetch(`http://localhost:3001/api/pairs?question_id=${questionId}`);
     if (!pairsResponse.ok) {
       return res.json({ question_id: questionId, writeup_possible: false });
     }
@@ -301,7 +312,7 @@ app.get('/api/has-writein', async (req, res) => {
     }
 
     // Fetch all latest ratings for the question
-    const ratingsResponse = await fetch(`http://localhost:3000/api/ratings?question_id=${questionId}`);
+    const ratingsResponse = await fetch(`http://localhost:3001/api/ratings?question_id=${questionId}`);
     if (!ratingsResponse.ok) {
       return res.json({ question_id: questionId, writeup_possible: false });
     }

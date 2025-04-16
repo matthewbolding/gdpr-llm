@@ -30,7 +30,7 @@
       console.log(`Fetching data for question_id=${questionId}`);
 
       // Fetch question text
-      const questionResponse = await fetch(`http://localhost:3000/api/question?question_id=${questionId}`);
+      const questionResponse = await fetch(`/api/question?question_id=${questionId}`);
       if (!questionResponse.ok) {
         throw new Error(`Error fetching question text! Status: ${questionResponse.status}`);
       }
@@ -38,7 +38,7 @@
       questionText = questionData.question_text;
 
       // Fetch generations
-      const generationsResponse = await fetch(`http://localhost:3000/api/generations?question_id=${questionId}&user_id=${userId}`);
+      const generationsResponse = await fetch(`/api/generations?question_id=${questionId}&user_id=${userId}`);
       if (!generationsResponse.ok) {
         throw new Error(`Error fetching generations! Status: ${generationsResponse.status}`);
       }
@@ -50,7 +50,7 @@
 
       // Fetch write-in, allow 404s without stopping the flow
       try {
-        const writeInResponse = await fetch(`http://localhost:3000/api/writeins/latest?question_id=${questionId}`);
+        const writeInResponse = await fetch(`/api/writeins/latest?question_id=${questionId}`);
         if (!writeInResponse.ok) {
           if (writeInResponse.status !== 404) {
             throw new Error(`Unexpected write-in error: ${writeInResponse.status}`);
@@ -91,7 +91,7 @@
     let timeSpent = Math.floor((endTime - startTime) / 1000);
     
     try {
-      const response = await fetch('http://localhost:3000/api/writeins', {
+      const response = await fetch('/api/writeins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

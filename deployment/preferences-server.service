@@ -1,0 +1,13 @@
+[Unit]
+Description=Preferences Server Script (Port 3001)
+After=network.target
+
+[Service]
+WorkingDirectory=/path/to/gdpr-llm
+ExecStart=/path/to/node server.js
+Restart=on-failure
+User=your_username
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
