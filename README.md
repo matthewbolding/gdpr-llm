@@ -46,6 +46,6 @@ $ sudo systemctl enable preferences-server
 ```
 
 ### Nginx Proxy Manager
-After creating the daemons and verify that they are running properly, you must forward the ports to the internet. The [deployed site](https://preferences.gdpr-llm.org) uses Nginx Proxy Manager to help facilitate this.
+After creating the daemons and verify that they are running properly, you must forward the ports to the internet. The [deployed site](https://preference.gdpr-llm.org) uses Nginx Proxy Manager to help facilitate this.
 
 The most important things to note about its deployment via this tool is that the forwarding scheme is `http`, the forwarded port is `3000`, and `/api` as a custom location is also defined which has a forwarded port of `3001` over `http`. SSL is enabled.
