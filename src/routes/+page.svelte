@@ -192,7 +192,7 @@
     userId = parseInt(event.target.value);
     selectedUserId.set(userId)
 
-    await fetchData(currentPage, questionsPerPage, searchQuery);
+    await fetchData(1, questionsPerPage, searchQuery);
     await fetchTimes();
   }
 

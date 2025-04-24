@@ -12,7 +12,7 @@ app.use(bodyParser.json());
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://preferences.gdpr-llm.org'
+  'https://preference.gdpr-llm.org'
 ];
 
 app.use(cors({

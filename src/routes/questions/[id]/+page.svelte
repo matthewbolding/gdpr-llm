@@ -168,13 +168,15 @@
         <!-- Generator X -->
         <div class="generation">
           <h3>Generator {pairs[currentIndex].gen_1_id}</h3>
-          <p>{pairs[currentIndex].gen_1_text}</p>
+          <!-- Cannot use p since text could be multiline. -->
+          <div style="white-space: pre-line;">{pairs[currentIndex].gen_1_text}</div>
         </div>
 
         <!-- Generator Y -->
         <div class="generation">
           <h3>Generator {pairs[currentIndex].gen_2_id}</h3>
-          <p>{pairs[currentIndex].gen_2_text}</p>
+          <!-- Cannot use p since text could be multiline. -->
+          <div style="white-space: pre-line;">{pairs[currentIndex].gen_2_text}</div>
         </div>
 
         <!-- Instructions -->
