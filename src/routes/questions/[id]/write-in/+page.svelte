@@ -139,7 +139,8 @@
           {#if selectedGenerations[gen.generation_id]}
             <div class="generation">
               <h3>Generator {gen.generation_id}</h3>
-              <p>{gen.generation_text}</p>
+              <!-- Cannot use p since text could be multiline. -->
+              <div style="white-space: pre-line;">{gen.generation_text}</div>
             </div>
           {/if}
         {/each}
