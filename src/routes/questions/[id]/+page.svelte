@@ -167,14 +167,14 @@
         
         <!-- Generator X -->
         <div class="generation">
-          <h3>Generator {pairs[currentIndex].gen_1_id}</h3>
+          <h3>Generator {pairs[currentIndex].gen_1_model_id}</h3>
           <!-- Cannot use p since text could be multiline. -->
           <div style="white-space: pre-line;">{pairs[currentIndex].gen_1_text}</div>
         </div>
 
         <!-- Generator Y -->
         <div class="generation">
-          <h3>Generator {pairs[currentIndex].gen_2_id}</h3>
+          <h3>Generator {pairs[currentIndex].gen_2_model_id}</h3>
           <!-- Cannot use p since text could be multiline. -->
           <div style="white-space: pre-line;">{pairs[currentIndex].gen_2_text}</div>
         </div>
@@ -187,25 +187,25 @@
           <!-- Usability Selection -->
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="both_unusable"/>
-            Both Generator {pairs[currentIndex].gen_1_id} and Generator {pairs[currentIndex].gen_2_id} are <span class="unusable">unusable</span> <em>as they are</em>.
+            Both Generator {pairs[currentIndex].gen_1_model_id} and Generator {pairs[currentIndex].gen_2_model_id} are <span class="unusable">unusable</span> <em>as they are</em>.
           </label>
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="gen_1_usable"/>
-            Generator {pairs[currentIndex].gen_1_id} is <span class="usable">usable</span> and Generator {pairs[currentIndex].gen_2_id} is <span class="unusable">unusable</span> <em>as they are</em>.
+            Generator {pairs[currentIndex].gen_1_model_id} is <span class="usable">usable</span> and Generator {pairs[currentIndex].gen_2_model_id} is <span class="unusable">unusable</span> <em>as they are</em>.
           </label>
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="gen_2_usable"/>
-            Generator {pairs[currentIndex].gen_1_id} is <span class="unusable">unusable</span> and Generator {pairs[currentIndex].gen_2_id} <span class="usable">usable</span> <em>as they are</em>.
+            Generator {pairs[currentIndex].gen_1_model_id} is <span class="unusable">unusable</span> and Generator {pairs[currentIndex].gen_2_model_id} <span class="usable">usable</span> <em>as they are</em>.
           </label>
 
           <p>If both Generator 1 and Generator 2 are <span class="usable">usable</span>  <em>as they are</em>, which one do you prefer?</p>
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_pref_1"/>
-            Generator {pairs[currentIndex].gen_1_id}
+            Generator {pairs[currentIndex].gen_1_model_id}
           </label>
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_pref_2"/>
-            Generator {pairs[currentIndex].gen_2_id}
+            Generator {pairs[currentIndex].gen_2_model_id}
           </label>
           <label>
             <input type="radio" name="selection" bind:group={local_user_selection} value="both_usable_no_pref"/>
@@ -233,11 +233,11 @@
               {/if}
             </ul>
             {#if user_selection === 'both_usable_pref_1'}
-              <p>and you prefer Generator {pairs[currentIndex].gen_1_id}.</p>
+              <p>and you prefer Generator {pairs[currentIndex].gen_1_model_id}.</p>
             {:else if user_selection === 'both_usable_pref_2'}
-              <p>and you prefer Generator {pairs[currentIndex].gen_2_id}.</p>
+              <p>and you prefer Generator {pairs[currentIndex].gen_2_model_id}.</p>
             {:else if user_selection === 'both_usable_no_pref'}
-              <p>and you have no preferene.</p>
+              <p>and you have no preference.</p>
             {/if}
           {/if}
         </div>

@@ -154,7 +154,7 @@ app.get('/api/generations', async (req, res) => {
     }
 
     const query = `
-      SELECT g.generation_id, g.generation_text, m.model_name
+      SELECT g.generation_id, g.generation_text, m.model_name, m.model_id
       FROM generations g
       JOIN models m ON g.model_id = m.model_id
       WHERE g.question_id = ?

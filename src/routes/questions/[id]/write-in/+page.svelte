@@ -138,7 +138,7 @@
         {#each generations as gen}
           {#if selectedGenerations[gen.generation_id]}
             <div class="generation">
-              <h3>Generator {gen.generation_id}</h3>
+              <h3>Generator {gen.model_id}</h3>
               <!-- Cannot use p since text could be multiline. -->
               <div style="white-space: pre-line;">{gen.generation_text}</div>
             </div>
@@ -153,9 +153,9 @@
             <input
               type="checkbox"
               bind:checked={selectedGenerations[gen.generation_id]}
-              aria-label="Select Generator {gen.generation_id}"
+              aria-label="Select Generator {gen.model_id}"
             />
-            Generator {gen.generation_id}
+            Generator {gen.model_id}
           </label>
         {/each}
         <textarea
