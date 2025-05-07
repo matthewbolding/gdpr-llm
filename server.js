@@ -3,6 +3,11 @@ import bodyParser from 'body-parser';
 import mysql from 'mysql2';
 import fs from 'fs/promises';
 import cors from 'cors';
+import session from 'express-session';
+import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const port = 3001;
@@ -12,6 +17,7 @@ app.use(bodyParser.json());
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://10.126.1.103:5173',
   'https://preference.gdpr-llm.org'
 ];
 
@@ -23,7 +29,15 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
+}));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set secure: true in production with HTTPS
 }));
 
 // Load database credentials from a configuration file using async/await
@@ -46,6 +60,79 @@ const db = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 }).promise();
+
+// User Registration
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Missing username or password.' });
+  }
+
+  try {
+    const [existing] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      return res.status(409).json({ message: 'Username already taken.' });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    const [result] = await db.query('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash]);
+    req.session.userId = result.insertId;
+    req.session.username = username;
+    res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
+  } catch (err) {
+    console.error(`[ERROR] Registering user: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// User Login
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Missing username or password.' });
+  }
+
+  try {
+    const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    if (rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    req.session.userId = user.user_id;
+    req.session.username = user.username;
+    res.json({ message: 'Login successful', userId: user.user_id });
+  } catch (err) {
+    console.error(`[ERROR] Logging in user: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// User Logout
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error(`[ERROR] Logging out: ${err.message}`);
+      return res.status(500).json({ message: 'Internal Server Error' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({ message: 'Logout successful' });
+  });
+});
+
+// Session Existence Check
+app.get('/api/session', (req, res) => {
+  if (req.session.userId) {
+    return res.json({ userId: req.session.userId, username: req.session.username });
+  }
+  res.status(401).json({ message: 'Not authenticated' });
+});
+
 
 // API Endpoint to fetch paginated questions
 app.get('/api/questions', async (req, res) => {

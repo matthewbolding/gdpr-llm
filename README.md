@@ -3,6 +3,9 @@
 To Do:
 - Ingest API endpoints.
 - Time tracking override.
+- Proper user paradigm.
+- Question numbers on homepage.
+- Freeze write in textbox.
 
 ## Developing
 The Node.js version used for this project is v22. Follow instructions [here](https://nodejs.org/en/download/) to install. After cloning the repository, run `npm install` to install the needed dependencies.

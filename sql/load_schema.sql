@@ -3,11 +3,13 @@ USE gdpr;
 
 CREATE TABLE users (
   user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(100) NOT NULL UNIQUE
+  username VARCHAR(100) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL
 );
 
-INSERT INTO users (username)
-VALUES ('Administrator');
+-- Placeholder hash to be replaced by database initialization script...
+INSERT INTO users (username, password_hash)
+VALUES ('Administrator', '$2b$10$REPLACE_WITH_BCRYPT_HASH');
 
 CREATE TABLE questions (
     question_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -25,17 +27,13 @@ CREATE TABLE user_questions (
   FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
 
-DELIMITER $$
-
 CREATE TRIGGER after_insert_question_assign_admin
 AFTER INSERT ON questions
 FOR EACH ROW
 BEGIN
   INSERT INTO user_questions (user_id, question_id)
   VALUES (1, NEW.question_id);
-END$$
-
-DELIMITER ;
+END;
 
 CREATE TABLE models (
     model_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

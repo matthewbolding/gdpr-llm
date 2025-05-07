@@ -2,13 +2,9 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { debounce } from 'lodash-es';
-  import { selectedUserId } from '$lib/stores/user';
 
-  let userId = 0;
-
-  selectedUserId.subscribe(value => {
-    userId = value;
-  })();
+  let username = null;
+  let userId = null;
 
   let questions = [];
   let users = [];
@@ -16,7 +12,6 @@
   let totalPages = 1;
   let questionsPerPage = 5;
   let searchQuery = '';
-  let username = '';
   let hasWriteIns = {};
   let times = {}
   let completed = {}
@@ -159,8 +154,39 @@
     }
   }
 
+  async function fetchSession() {
+    try {
+      const res = await fetch('/api/session', { credentials: 'include' });
+      if (!res.ok) throw new Error('Not authenticated');
+      const data = await res.json();
+      userId = data.userId;
+      username = data.username;
+    } catch (err) {
+      console.warn('No active session');
+      userId = null;
+      username = null;
+    }
+  }
+
+  async function logout() {
+    try {
+      const res = await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        console.error('Logout failed');
+      }
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
+  }
+
   // Load data on page mount
   onMount(async () => {
+    await fetchSession();
     await fetchUsers();
     await fetchData();
     await fetchHasWriteIns();
@@ -216,19 +242,16 @@
         <h1>Annotation Framework</h1>
     
         <div class="user-dropdown">
-          <label for="user-select">User:</label>
-          <select
-            id="user-select"
-            aria-label="Select user"
-            bind:value={userId}
-            on:change={handleUserChange}>
-            <option disabled selected value="">-- Select a user --</option>
-            {#each users as user}
-              <option value={user.user_id}>{user.username}</option>
-            {/each}
-          </select>
-        </div>
-        
+          {#if username}
+            <p><strong>Hello, {username}</strong></p>
+            <button on:click={logout}>Sign Out</button>
+          {:else}
+            <p>
+              <em>Read-only mode (not logged in).</em>
+              <a href="/login" style="margin-left: 0.5rem;">Login</a>
+            </p>
+          {/if}
+        </div>        
     
         <div class="search-bar">
           <input
