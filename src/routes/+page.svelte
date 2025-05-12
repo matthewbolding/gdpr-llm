@@ -203,6 +203,10 @@
     goto(`/questions/${questionId}/write-in`)
   }
 
+  function goToAssignments() {
+    goto(`/assignments`);
+  }
+
   async function handleQuestionsPerPageChange(event) {
     questionsPerPage = parseInt(event.target.value);
     await fetchData(1, questionsPerPage, searchQuery);
@@ -260,6 +264,7 @@
             placeholder="Search..."
             bind:value={searchQuery}
             on:input={handleSearch} />
+            <button on:click={goToAssignments}>Make Question Assignments</button>
         </div>
     
         <div class="per-page-control">

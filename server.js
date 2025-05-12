@@ -61,6 +61,48 @@ const db = mysql.createPool({
   queueLimit: 0
 }).promise();
 
+// Get all user-question assignments
+app.get('/api/user-questions', async (req, res) => {
+  try {
+    console.log(`[GET] /api/user-questions - Fetching all user-question assignments`);
+    const [rows] = await db.query('SELECT user_id, question_id FROM user_questions');
+    res.json(rows);
+  } catch (err) {
+    console.error('[ERROR] Fetching user-question assignments:', err.message);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Assign or unassign a user to a question
+app.post('/api/user-questions', async (req, res) => {
+  const { user_id, question_id, assigned } = req.body;
+
+  if (!user_id || !question_id || typeof assigned !== 'boolean') {
+    return res.status(400).json({ message: 'Missing or invalid user_id, question_id, or assigned flag.' });
+  }
+
+  try {
+    console.log(`[POST] /api/user-questions - ${assigned ? 'Assigning' : 'Unassigning'} user ${user_id} to question ${question_id}`);
+    
+    if (assigned) {
+      await db.query(
+        'INSERT IGNORE INTO user_questions (user_id, question_id) VALUES (?, ?)',
+        [user_id, question_id]
+      );
+      res.status(200).json({ message: 'Assignment added.' });
+    } else {
+      await db.query(
+        'DELETE FROM user_questions WHERE user_id = ? AND question_id = ?',
+        [user_id, question_id]
+      );
+      res.status(200).json({ message: 'Assignment removed.' });
+    }
+  } catch (err) {
+    console.error('[ERROR] Modifying user-question assignment:', err.message);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 // User Registration
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
@@ -689,7 +731,7 @@ app.post('/api/generations', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try {
-    const [rows] = await db.query(`SELECT * FROM users ORDER BY username`);
+    const [rows] = await db.query(`SELECT user_id, username FROM users ORDER BY username`);
     res.json(rows);
   } catch (err) {
     console.error(`[ERROR] Fetching users: ${err.message}`);
