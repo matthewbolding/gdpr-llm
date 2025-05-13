@@ -285,6 +285,7 @@
       <table>
         <thead>
           <tr>
+            <th>ID</th>
             <th>Question</th>
             <th>Status</th>
             <th>Write-In</th>
@@ -293,6 +294,7 @@
         <tbody>
           {#each questions as question}
             <tr>
+              <td>{question.question_id}</td>
               <td>
                 <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
               </td>

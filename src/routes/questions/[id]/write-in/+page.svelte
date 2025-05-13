@@ -133,42 +133,45 @@
   {:else}
     <h1>{questionId}: {questionText}</h1>
   
-    <div class="container">
-      <div class="generation-output">
-        {#each generations as gen}
-          {#if selectedGenerations[gen.generation_id]}
-            <div class="generation">
-              <h3>Generator {gen.model_id}</h3>
-              <!-- Cannot use p since text could be multiline. -->
-              <div style="white-space: pre-line;">{gen.generation_text}</div>
-            </div>
-          {/if}
-        {/each}
+    <div class="container-layout">
+      <div class="scroll-pane">
+        <div class="generation-output">
+          {#each generations as gen}
+            {#if selectedGenerations[gen.generation_id]}
+              <div class="generation">
+                <h3>Generator {gen.model_id}</h3>
+                <div style="white-space: pre-line;">{gen.generation_text}</div>
+              </div>
+            {/if}
+          {/each}
+        </div>
       </div>
-      <div class="instructions">
-        <h3>Instructions</h3>
-        <p>Select the generators whose outputs from which you intend to use to create your own answer to the question. You may only view the generator's outputs you have selected. You don't have to use any generators if no part of any generators are usable.</p>
-        {#each generations as gen}
-          <label>
-            <input
-              type="checkbox"
-              bind:checked={selectedGenerations[gen.generation_id]}
-              aria-label="Select Generator {gen.model_id}"
-            />
-            Generator {gen.model_id}
-          </label>
-        {/each}
-        <textarea
-          bind:value={writeinText}
-          placeholder="Write your entry here..."
-          aria-label="Write-in text area">
-        </textarea>
-        <br>
-        <br>
-        <button class="button" on:click={submitWriteIn}>Submit</button>
+    
+      <div class="fixed-pane">
+        <div class="instructions">
+          <h3>Instructions</h3>
+          <p>Select the generators whose outputs from which you intend to use to create your own answer to the question. You may only view the generator's outputs you have selected. You don't have to use any generators if no part of any generators are usable.</p>
+          {#each generations as gen}
+            <label>
+              <input
+                type="checkbox"
+                bind:checked={selectedGenerations[gen.generation_id]}
+                aria-label="Select Generator {gen.model_id}"
+              />
+              Generator {gen.model_id}
+            </label>
+          {/each}
+          <textarea
+            bind:value={writeinText}
+            placeholder="Write your entry here..."
+            aria-label="Write-in text area">
+          </textarea>
+          <br><br>
+          <button class="button" on:click={submitWriteIn}>Submit</button>
+        </div>
       </div>
     </div>
-  
+    
     <div class="navigation">
       <button class="button" on:click={goHome}>Home</button>
       <p class="status {answered ? 'answered' : 'unanswered'}">{answered ? 'Answered' : 'Unanswered'}</p>
@@ -178,43 +181,56 @@
 </main>
   
 <style>
-  .container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: start;
-  }
-  
-  .instructions {
-    padding: 10px;
-    border-radius: 5px;
-  }
-  
-  .generation-output {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .generation {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-  }
-  
-  textarea {
-    width: 100%;
-    height: 100px;
-    margin-top: 10px;
-    font-family: inherit;
-  }
-  
-  .navigation {
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-  }
+.container-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  height: 70vh;
+}
+
+.fixed-pane {
+  flex: 0 0 50%;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.scroll-pane {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 70vh;
+  padding-left: 10px;
+}
+
+.generation-output {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.generation {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+textarea {
+  width: 100%;
+  height: 100px;
+  margin-top: 10px;
+  font-family: inherit;
+}
+
+.navigation {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
 
   .status {
     text-align: center;
@@ -254,4 +270,3 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 </style>
-  
