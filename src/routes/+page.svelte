@@ -3,11 +3,11 @@
   import { goto } from '$app/navigation';
   import { debounce } from 'lodash-es';
 
-  let username = null;
+  let username = '';
   let userId = null;
+  let isAuthenticated = false;
 
   let questions = [];
-  let users = [];
   let currentPage = 1;
   let totalPages = 1;
   let questionsPerPage = 5;
@@ -50,7 +50,6 @@
       questions = [];
     }
   }
-
 
   async function fetchHasWriteIns() {
     try {
@@ -144,16 +143,6 @@
     console.log("Completion statuses:", completed);
   }
 
-  async function fetchUsers() {
-    try {
-      const userRes = await fetch('/api/users');
-      if (!userRes.ok) throw new Error('Failed to fetch users.')
-      users = await userRes.json();
-    } catch (err) {
-      console.error('Error fetching users: ', err)
-    }
-  }
-
   async function fetchSession() {
     try {
       const res = await fetch('/api/session', { credentials: 'include' });
@@ -161,10 +150,9 @@
       const data = await res.json();
       userId = data.userId;
       username = data.username;
+      isAuthenticated = true;
     } catch (err) {
-      console.warn('No active session');
-      userId = null;
-      username = null;
+      console.warn('User not authenticated.');
     }
   }
 
@@ -187,7 +175,6 @@
   // Load data on page mount
   onMount(async () => {
     await fetchSession();
-    await fetchUsers();
     await fetchData();
     await fetchHasWriteIns();
     await fetchTimes();
@@ -246,14 +233,11 @@
         <h1>Annotation Framework</h1>
     
         <div class="user-dropdown">
-          {#if username}
+          {#if isAuthenticated}
             <p><strong>Hello, {username}</strong></p>
             <button on:click={logout}>Sign Out</button>
           {:else}
-            <p>
-              <em>Read-only mode (not logged in).</em>
-              <a href="/login" style="margin-left: 0.5rem;">Login</a>
-            </p>
+            <p><em><a href="/login">Login</a> to annotate</em></p>
           {/if}
         </div>        
     
@@ -285,15 +269,21 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Question</th>
-            <th>Status</th>
-            <th>Write-In</th>
+            {#if isAuthenticated}
+              <th>ID</th>
+              <th>Question</th>
+              <th>Status</th>
+              <th>Write-In</th>
+            {:else}
+              <th>ID</th>
+              <th>Question</th>
+            {/if}
           </tr>
         </thead>
         <tbody>
           {#each questions as question}
             <tr>
+            {#if isAuthenticated}
               <td>{question.question_id}</td>
               <td>
                 <button on:click={() => goToQuestion(question.question_id)}>{question.question_text}</button>
@@ -305,6 +295,12 @@
               <td>
                 <button on:click={() => goToWriteIn(question.question_id)} disabled={!hasWriteIns[question.question_id]}>Go</button>
               </td>
+            {:else}
+              <td>{question.question_id}</td>
+              <td>
+                <p>{question.question_text}</p>
+              </td>
+            {/if}
             </tr>
           {/each}
         </tbody>

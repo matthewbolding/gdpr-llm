@@ -10,6 +10,7 @@
     userId = value;
   })();
 
+  let username = '';
   let questionId;
   let pairs = [];
   let ratings = [];
@@ -70,6 +71,19 @@
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+    }
+  }
+
+  async function fetchSession() {
+    try {
+      const res = await fetch('/api/session', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        userId = data.userId;
+        username = data.username;
+      }
+    } catch (err) {
+      console.warn('Not logged in.');
     }
   }
 
@@ -148,6 +162,7 @@
 
   // Load pairs on mount
   onMount(async () => {
+    await fetchSession();
     await fetchData();
     await prepareView();
     startTime = Date.now();
@@ -160,7 +175,12 @@
     <p>Loading data...</p>
   {:else}
     <h1>{questionId}: {questionText}</h1>
-    <!-- <h1>User ID: {userId}</h1> -->
+
+    <div class="user-banner">
+      {#if username}
+        <p><strong>Annotating as {username}</strong></p>
+      {/if}
+    </div>
 
     {#if pairs.length > 0}
       <div class="container">
@@ -332,6 +352,13 @@
   button:disabled {
     background-color: #CCCCCC;
     cursor: not-allowed;
+  }
+
+  .user-banner {
+    text-align: center;
+    margin-top: 1rem;
+    font-weight: 600;
+    font-size: 1.1rem;
   }
 
   :global(body) {

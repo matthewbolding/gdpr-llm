@@ -175,7 +175,6 @@ app.get('/api/session', (req, res) => {
   res.status(401).json({ message: 'Not authenticated' });
 });
 
-
 // API Endpoint to fetch paginated questions
 app.get('/api/questions', async (req, res) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -343,9 +342,14 @@ app.get('/api/pairs', async (req, res) => {
 });
 
 app.post('/api/rate', async (req, res) => {
-  const { question_id, gen_1_id, gen_2_id, selection, time_spent, user_id } = req.body;
+  const user_id = req.session.userId;
+  const { question_id, gen_1_id, gen_2_id, selection, time_spent } = req.body;
   
-  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent, !user_id) {
+  if (!user_id) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+
+  if (!question_id || !gen_1_id || !gen_2_id || !selection || !time_spent) {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
 
@@ -380,7 +384,13 @@ app.post('/api/rate', async (req, res) => {
 });
 
 app.get('/api/ratings', async (req, res) => {
+  const userId = req.session.userId;
   const questionId = parseInt(req.query.question_id, 10);
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+  
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
@@ -392,19 +402,16 @@ app.get('/api/ratings', async (req, res) => {
       SELECT r.rating_id, r.question_id, r.gen_id_1, r.gen_id_2, r.user_selection, r.timestamp
       FROM ratings r
       INNER JOIN (
-        SELECT question_id, gen_id_1, gen_id_2, MAX(timestamp) AS latest_timestamp
+        SELECT gen_id_1, gen_id_2, MAX(timestamp) AS latest_timestamp
         FROM ratings
-        WHERE question_id = ?
-        GROUP BY question_id, gen_id_1, gen_id_2
-      ) latest_ratings
-      ON r.question_id = latest_ratings.question_id
-      AND r.gen_id_1 = latest_ratings.gen_id_1
-      AND r.gen_id_2 = latest_ratings.gen_id_2
-      AND r.timestamp = latest_ratings.latest_timestamp
-      ORDER BY r.timestamp DESC;
+        WHERE question_id = ? AND user_id = ?
+        GROUP BY gen_id_1, gen_id_2
+      ) latest ON r.gen_id_1 = latest.gen_id_1 AND r.gen_id_2 = latest.gen_id_2 AND r.timestamp = latest.latest_timestamp
+      WHERE r.question_id = ? AND r.user_id = ?
+      ORDER BY r.timestamp DESC
     `;
     
-    const [rows] = await db.query(query, [questionId]);
+    const [rows] = await db.query(query, [questionId, userId, questionId, userId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: 'No ratings found for this question.' });
@@ -421,57 +428,76 @@ app.get('/api/ratings', async (req, res) => {
 });
 
 app.get('/api/has-writein', async (req, res) => {
+  const userId = req.session.userId;
   const questionId = parseInt(req.query.question_id, 10);
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
 
   try {
-    console.log(`[GET] /api/has-writein?question_id=${questionId} - Checking if write-up is possible`);
-    
-    // Fetch all generation pairs for the question
-    const pairsResponse = await fetch(`http://localhost:3001/api/pairs?question_id=${questionId}`);
-    if (!pairsResponse.ok) {
-      return res.json({ question_id: questionId, writeup_possible: false });
-    }
-    const pairsData = await pairsResponse.json();
+    console.log(`[GET] /api/has-writein?question_id=${questionId} - Checking if write-up is possible for user ${userId}`);
 
-    if (!pairsData.pairs || pairsData.pairs.length === 0) {
-      return res.json({ question_id: questionId, writeup_possible: false });
+    // 1. Fetch generation pairs for this question
+    const [pairs] = await db.query(`
+      SELECT g1.generation_id AS gen_1_id, g2.generation_id AS gen_2_id
+      FROM generations g1
+      JOIN generations g2 ON g1.question_id = g2.question_id AND g1.generation_id < g2.generation_id
+      WHERE g1.question_id = ?
+    `, [questionId]);
+
+    if (pairs.length === 0) {
+      return res.json({ question_id: questionId, has_writein: false });
     }
 
-    // Fetch all latest ratings for the question
-    const ratingsResponse = await fetch(`http://localhost:3001/api/ratings?question_id=${questionId}`);
-    if (!ratingsResponse.ok) {
-      return res.json({ question_id: questionId, writeup_possible: false });
-    }
-    const ratingsData = await ratingsResponse.json();
+    // 2. Fetch the latest user ratings for each pair
+    const [ratings] = await db.query(`
+      SELECT r.gen_id_1, r.gen_id_2, r.user_selection
+      FROM ratings r
+      INNER JOIN (
+        SELECT gen_id_1, gen_id_2, MAX(rating_id) AS max_rating_id
+        FROM ratings
+        WHERE question_id = ? AND user_id = ?
+        GROUP BY gen_id_1, gen_id_2
+      ) latest ON r.rating_id = latest.max_rating_id
+    `, [questionId, userId]);
 
-    // Convert ratings into a map for easy lookup
-    const ratingsMap = new Map();
-    ratingsData.ratings.forEach(rating => {
-      ratingsMap.set(`${rating.gen_id_1}-${rating.gen_id_2}`, rating.user_selection);
+    const ratingMap = new Map();
+    ratings.forEach(rating => {
+      ratingMap.set(`${rating.gen_id_1}-${rating.gen_id_2}`, rating.user_selection);
     });
 
-    // Check if all pairs are marked as 'both_unusable'
-    const allUnusable = pairsData.pairs.every(pair => {
+    // 3. Check if all pairs are rated and marked 'both_unusable'
+    const allUnusable = pairs.every(pair => {
       const key = `${pair.gen_1_id}-${pair.gen_2_id}`;
-      return ratingsMap.get(key) === 'both_unusable';
+      return ratingMap.get(key) === 'both_unusable';
     });
 
-    res.json({
+    return res.json({
       question_id: questionId,
       has_writein: allUnusable
     });
+
   } catch (err) {
-    console.error(`[ERROR] Checking write-up possibility for question ${questionId}: ${err.message}`);
-    res.json({ question_id: questionId, has_writein: false });
+    console.error(`[ERROR] Checking write-in eligibility for question ${questionId}: ${err.message}`);
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
+
 app.post('/api/writeins', async (req, res) => {
-  const { question_id, writein_text, generations, time_spent, user_id } = req.body;
-  if (!question_id || !writein_text || !Array.isArray(generations), !user_id) {
+  const userId = req.session.userId;
+  const { question_id, writein_text, generations, time_spent } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+  
+  if (!question_id || !writein_text || !Array.isArray(generations)) {
     return res.status(400).json({ message: 'Missing required fields or invalid format.' });
   }
 
@@ -479,12 +505,12 @@ app.post('/api/writeins', async (req, res) => {
   await connection.beginTransaction();
 
   try {
-    console.log(`[POST] /api/writeins - Submitting write-in for question ${question_id} from user_id ${user_id}`);
+    console.log(`[POST] /api/writeins - Submitting write-in for question ${question_id} from user_id ${userId}`);
     
     // Insert the write-in response
     const [writeinResult] = await connection.query(
       `INSERT INTO writeins (question_id, writein_text, time_spent_seconds, user_id) VALUES (?, ?, ?, ?)`,
-      [question_id, writein_text, time_spent, user_id]
+      [question_id, writein_text, time_spent, userId]
     );
     const writein_id = writeinResult.insertId;
 
@@ -510,44 +536,64 @@ app.post('/api/writeins', async (req, res) => {
 
 app.get('/api/writeins/latest', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
+  const userId = req.session.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
 
   try {
-    console.log(`[GET] /api/writeins/latest?question_id=${questionId} - Fetching latest write-in`);
-    
-    const query = `
-      SELECT 
-        w.writein_id, 
-        w.question_id, 
-        w.writein_text, 
-        w.timestamp, 
-        COALESCE(JSON_ARRAYAGG(wg.generation_id), JSON_ARRAY()) AS generation_ids
-      FROM writeins w
-      LEFT JOIN writein_generations wg 
-        ON w.writein_id = wg.writein_id AND wg.used = TRUE
-      WHERE w.question_id = ?
-      GROUP BY w.writein_id
-      ORDER BY w.timestamp DESC
-      LIMIT 1;
-    `;
-    
-    const [rows] = await db.query(query, [questionId]);
-    
-    if (rows.length === 0) {
+    console.log(`[GET] /api/writeins/latest?question_id=${questionId} - Fetching latest write-in for user ${userId}`);
+
+    // First, get the latest writein_id for the user/question
+    const [latestRows] = await db.query(`
+      SELECT writein_id
+      FROM writeins
+      WHERE question_id = ? AND user_id = ?
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `, [questionId, userId]);
+
+    if (latestRows.length === 0) {
       return res.status(404).json({ message: 'No write-ins found for this question.' });
     }
 
-    res.json(rows[0]);
+    const writeinId = latestRows[0].writein_id;
+
+    // Then fetch the full writein with associated generation_ids
+    const [resultRows] = await db.query(`
+      SELECT 
+        w.writein_id,
+        w.question_id,
+        w.writein_text,
+        w.timestamp,
+        COALESCE(JSON_ARRAYAGG(wg.generation_id), JSON_ARRAY()) AS generation_ids
+      FROM writeins w
+      LEFT JOIN writein_generations wg ON w.writein_id = wg.writein_id AND wg.used = TRUE
+      WHERE w.writein_id = ?
+      GROUP BY w.writein_id
+    `, [writeinId]);
+
+    res.json(resultRows[0]);
   } catch (err) {
     console.error(`[ERROR] Fetching latest write-in for question ${questionId}: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
+
 app.get('/api/time/ratings', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
+  const userId = req.session.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+  
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
@@ -556,10 +602,10 @@ app.get('/api/time/ratings', async (req, res) => {
     const query = `
       SELECT COALESCE(SUM(time_spent_seconds), 0) AS total_rating_time
       FROM ratings
-      WHERE question_id = ?;
+      WHERE user_id = ? AND question_id = ?;
     `;
 
-    const [rows] = await db.query(query, [questionId]);
+    const [rows] = await db.query(query, [userId, questionId]);
     res.json({ question_id: questionId, total_rating_time: rows[0].total_rating_time });
   } catch (err) {
     console.error(`[ERROR] Summing rating time: ${err.message}`);
@@ -569,6 +615,12 @@ app.get('/api/time/ratings', async (req, res) => {
 
 app.get('/api/time/writeins', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
+  const userId = req.session.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+  
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
@@ -577,10 +629,10 @@ app.get('/api/time/writeins', async (req, res) => {
     const query = `
       SELECT COALESCE(SUM(time_spent_seconds), 0) AS total_writein_time
       FROM writeins
-      WHERE question_id = ?;
+      WHERE user_id = ? AND question_id = ?;
     `;
 
-    const [rows] = await db.query(query, [questionId]);
+    const [rows] = await db.query(query, [userId, questionId]);
     res.json({ question_id: questionId, total_writein_time: rows[0].total_writein_time });
   } catch (err) {
     console.error(`[ERROR] Summing write-in time: ${err.message}`);
@@ -589,12 +641,20 @@ app.get('/api/time/writeins', async (req, res) => {
 });
 
 app.get('/api/questions/is-answered', async (req, res) => {
+  const userId = req.session.userId;
   const questionId = parseInt(req.query.question_id, 10);
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Must be logged in.' });
+  }
+
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
 
   try {
+    console.log(`[GET] /api/questions/is-answered?question_id=${questionId} - Checking completion for user ${userId}`);
+
     // 1. Get all generation pairs for the question
     const [pairs] = await db.query(`
       SELECT g1.generation_id AS gen_1_id, g2.generation_id AS gen_2_id
@@ -607,17 +667,18 @@ app.get('/api/questions/is-answered', async (req, res) => {
       return res.json({ question_id: questionId, is_answered: false });
     }
 
-    // 2. Get most recent ratings for the question
+    // 2. Get most recent ratings for the user and question
     const [ratings] = await db.query(`
       SELECT r.gen_id_1, r.gen_id_2, r.user_selection
       FROM ratings r
       INNER JOIN (
-        SELECT question_id, gen_id_1, gen_id_2, MAX(rating_id) AS max_rating_id
+        SELECT gen_id_1, gen_id_2, MAX(rating_id) AS max_rating_id
         FROM ratings
-        WHERE question_id = ?
-        GROUP BY question_id, gen_id_1, gen_id_2
-      ) latest ON r.rating_id = latest.max_rating_id;
-    `, [questionId]);
+        WHERE question_id = ? AND user_id = ?
+        GROUP BY gen_id_1, gen_id_2
+      ) latest ON r.rating_id = latest.max_rating_id
+      WHERE r.user_id = ? AND r.question_id = ?;
+    `, [questionId, userId, userId, questionId]);
 
     const ratingMap = new Map();
     ratings.forEach(rating => {
@@ -646,23 +707,23 @@ app.get('/api/questions/is-answered', async (req, res) => {
       return res.json({ question_id: questionId, is_answered: false });
     }
 
-    // 3. If all pairs are rated, but all are both_unusable, check for a write-in
+    // 3. If all are rated but marked both_unusable, check for user's write-in
     if (!hasNonBothUnusable) {
       const [writeins] = await db.query(`
-        SELECT 1 FROM writeins WHERE question_id = ? LIMIT 1;
-      `, [questionId]);
+        SELECT 1 FROM writeins WHERE question_id = ? AND user_id = ? LIMIT 1;
+      `, [questionId, userId]);
 
       return res.json({ question_id: questionId, is_answered: writeins.length > 0 });
     }
 
-    // Otherwise fully answered
     return res.json({ question_id: questionId, is_answered: true });
 
   } catch (err) {
-    console.error(`[ERROR] Checking is-answered for question ${questionId}: ${err.message}`);
+    console.error(`[ERROR] Checking is-answered for question ${questionId} (user ${userId}): ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
 
 app.post('/api/questions', async (req, res) => {
   const { question_text } = req.body;
