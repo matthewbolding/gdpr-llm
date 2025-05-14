@@ -1,11 +1,8 @@
 # GDPR x LLM
 
 To Do:
-- Ingest API endpoints.
 - Time tracking override.
-- Proper user paradigm.
-- Question numbers on homepage.
-- Freeze write in textbox.
+- Obscured generator numbers.
 
 ## Developing
 The Node.js version used for this project is v22. Follow instructions [here](https://nodejs.org/en/download/) to install. After cloning the repository, run `npm install` to install the needed dependencies.
@@ -19,7 +16,6 @@ npm run dev -- --open
 ## Interacting with the Database
 For the `server.js` file to communicate with the MySQL server, you must create a file in the repository's root and name it `db_config.json`. The file will follow the below structure.
 
-
 ```json
 {
     "host": "localhost",
@@ -30,12 +26,19 @@ For the `server.js` file to communicate with the MySQL server, you must create a
 }
 ```
 
-If you do not already have a database created, login to the MySQL terminal and source `load_schema.sql`. This will create the schema in the database. Then, source `load_sample_data.sql` to load in some fake data; this data only includes questions and possible responses created by models.
+Also required is a `.env` file. This file will contain two secrets.
 
-The purpose of `reset_user_content.sql` is to delete all user generated rows in the database. Specifically, sourcing this file will delete all rows in tables `writeins`, `writein_generations`, and `ratings`. `reset_database.sql` will delete all tables in the database; use with caution.
+```env
+ADMIN_PASSWORD=ADMIN_PASSWORD_HERE
+SESSION_SECRET=SESSION_SECRET_HERE
+```
+
+Two scripts are provided in the `setup` folder: `init_db.js` and `init_question.js`. `init_db.js` initialized the database schema and creates a default user, admin, whose password is stored within the `.env` file. `init_question.js` inserts the questions in the `data/questions.txt` file. View that text file to see the how to properly input questions to the system.
+
+Sourcing in the MySQL terminal `reset_database.sql` will delete all tables in the database; use with caution.
 
 ## Hosting and Deployment
-The current planned iteration of this tool does not provide for robust security. Therefore, as a broad safeguard against unauthorized access, the website as it's hosted will have [basic HTTP authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/).
+As a broad safeguard against unauthorized access, the website as it's hosted will have [basic HTTP authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/). Users may still create accounts for themselves.
 
 To deploy the site on a Ubuntu system, run the command `npm run preview`, verify that the site appears to be working properly, and then run `npm run build`. Run `node build/index.js` to verify that the build site functions properly. Them, copy the files from the `deployment` directory to `/etc/systemd/system`. Edit the files so that the correct path for this repository and `node` executable are properly in place. Refresh the system daemons and then start and enable the newly created daemons.
 

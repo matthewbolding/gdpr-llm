@@ -1,0 +1,38 @@
+# This file contains questions. Empty lines and those beginning with an octothorpe are ignored.
+
+# Applications
+If I train my LLM on personal data, but delete all that data after training, am I exempt from complying with GDPR?
+Are there any GDPR implications if I integrate the publicly available ChatGPT app into my organization workflows?
+I run a one-person company and keep all my customer data in handwritten papers. What is the easiest way to achieve GDPR compliance?
+Which of the major cloud providers offer best support for GDPR compliance?
+My organization offers CCTV as a service to schools. What are my GDPR responsibilities?
+We are looking to demonstrate compliance with both GDPR and AI act. How could it be done in tandem efficiently?
+Explain the situations under which a government agency must seek prior consultation (under article 36).
+What measures must a self-driving car company take to be GDPR compliant?
+Why does GDPR not apply to Wikipedia and Wayback machine?
+How does GDPR affect the outsourcing industry?
+
+# Core Articles
+Which of the GDPR rights is the hardest to implement from a computing perspective?
+Which of the GDPR articles is open to the broadest legal interpretation?
+List the GDPR rights in the increasing order of their legal complexity. Is this order any different from implementation complexity?
+Can I continue to process personal data in a GDPR compliant way, if I do not want to reveal its source?
+Which of the GDPR articles must a computing person grasp to design and operate a personal-data analytics system?
+Do any of the GDPR articles conflict or overlap with the AI act?
+If I employ differential privacy, am I exempt from articles 24 through 43 as a controller?
+What are some of the legitimate ways to stretch the 72 hour requirement of article 33?
+How do I recognize a processor that is not compliant with the GDPR?
+If an organization keeps a simple, static document that explains its internal data processing activities, does that satisfy article 30?
+
+# Enforcement
+An insurance policy containing personal data of two people was emailed to an unauthorized recipient. Later, when the said unauthorized person voluntarily contacted the controller, they were asked to permanently delete the email. Then, the controller assumed that the incident is unlikely to negatively impact the exposed data subjects. Did the controller comply with GDPR or violate any GDPR responsibilities?
+Here is the timeline of a software bug at Twitter. 12/26/2018: Twitter's bug bounty program receives a report that if a user changes their Twitter email on Android, all their protected tweets become publicly readable; 12/29/2018: A contracting firm tasked with initial triaging, verifies the bug but labels it as low-risk; 1/2/2019: Twitter's internal security team analyzes the bug, tracks down its origin to a 2014 code change, and asks the legal team to look into its privacy implications; 1/7/2019: Twitter Data Protection Officer learns about this issue at a weekly meeting and reports it to the Irish DPC the day after. Did Twitter violate GDPR?
+When a person requests their personal data be deleted, the controller decides not to delete the data but simply deactivates the account. This prevents any access to the said data both from outside of the organization as well as for all internal systems within the organization. Is the controller in compliance with GDPR article 17?
+When a person tried to exercise GDPR right to erasure, the controller asked for a national photo ID to verify. They don\'t require a photo ID to create an account or use their service. Is this a compliant behavior?
+I'm the developer of a facial recognition service, which I have built by training my ML model on photos scraped from the Internet (something like Clearview AI). Now, I'm getting RTBF request from people, but I have not tagged my training photos with people's names. I plan to ask people to provide copies of ALL the photos they want removed from my system. Then, I will create a database of blacklisted photos, which helps the system filter out the results before displaying. Is this an acceptable design under GDPR?
+As a controller who receives RTBF requests on personal data, I plan to keep a log of all such requests together with the actions that I take. Could I keep this log forever or does it need to purge it from time to time?
+I have a limited budget for GDPR compliance. Based on real-world enforcements, identify the GDPR articles that are more important to be supported than others?
+Which of the GDPR rights is the most violated in the first six years of GDPR? Why are organizations finding it hard?
+Are different DPAs focusing on different priorities in enforcing GDPR? Can you identify key focus areas for each of the DPAs?
+From a GDPR enforcement perspective, which is the best country to set up a European subsidiary if my organization works with personal data?
+What are most cost-effective strategies to avoid GDPR penalties and warnings?
