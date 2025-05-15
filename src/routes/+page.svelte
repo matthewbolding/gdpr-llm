@@ -176,9 +176,13 @@
   onMount(async () => {
     await fetchSession();
     await fetchData();
-    await fetchHasWriteIns();
-    await fetchTimes();
-    await fetchCompletion();
+
+    if(isAuthenticated) {
+      await fetchHasWriteIns();
+      await fetchTimes();
+      await fetchCompletion();
+    }
+
     dataLoaded = true;
   });
 
@@ -197,7 +201,7 @@
   async function handleQuestionsPerPageChange(event) {
     questionsPerPage = parseInt(event.target.value);
     await fetchData(1, questionsPerPage, searchQuery);
-    await fetchTimes();
+    if(isAuthenticated) await fetchTimes();
   }
 
   function handleSearch(event) {
@@ -210,15 +214,19 @@
     selectedUserId.set(userId)
 
     await fetchData(1, questionsPerPage, searchQuery);
-    await fetchTimes();
+    if(isAuthenticated) await fetchTimes();
   }
 
   async function handlePageChange(newPage, questionsPerPage, searchQuery) {
     dataLoaded = false;
     await fetchData(newPage, questionsPerPage, searchQuery);
-    await fetchHasWriteIns();
-    await fetchTimes();
-    await fetchCompletion();
+    
+    if(isAuthenticated) {
+      await fetchHasWriteIns();
+      await fetchTimes();
+      await fetchCompletion();
+    }
+    
     dataLoaded = true;
   }
 

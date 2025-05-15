@@ -11,7 +11,7 @@
     assignmentsLoaded = false;
     const [usersRes, questionsRes, assignmentsRes] = await Promise.all([
       fetch('/api/users'),
-      fetch('/api/questions?page=1&limit=1000&user_id=1'),
+      fetch('/api/questions'),
       fetch('/api/user-questions')
     ]);
 

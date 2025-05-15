@@ -31,9 +31,13 @@ Also required is a `.env` file. This file will contain two secrets.
 ```env
 ADMIN_PASSWORD=ADMIN_PASSWORD_HERE
 SESSION_SECRET=SESSION_SECRET_HERE
+OPENROUTER_API_KEY=API_SECRET_HERE
 ```
 
-Two scripts are provided in the `setup` folder: `init_db.js` and `init_question.js`. `init_db.js` initialized the database schema and creates a default user, admin, whose password is stored within the `.env` file. `init_question.js` inserts the questions in the `data/questions.txt` file. View that text file to see the how to properly input questions to the system.
+Three scripts are provided in the `scripts` folder: `init_db.js`, `init_question.js`, and `init_generations`. 
+- `init_db.js` initialized the database schema and creates a default user, admin, whose password is stored within the `.env` file. 
+- `init_question.js` inserts the questions from the `data/questions.txt` file into the `questions` table. View that text file to see the how to properly input questions to the system.
+- `init_generations.js` interfaces with openrouter.ai to programmatically fetch generations for all questions from each of the desired models. The script will write all the generations to `data/generations.json`.
 
 Sourcing in the MySQL terminal `reset_database.sql` will delete all tables in the database; use with caution.
 

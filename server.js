@@ -175,27 +175,30 @@ app.get('/api/session', (req, res) => {
   res.status(401).json({ message: 'Not authenticated' });
 });
 
-// API Endpoint to fetch paginated questions
 app.get('/api/questions', async (req, res) => {
-  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
-  const offset = (page - 1) * limit;
+  const hasParams = req.query.page || req.query.limit || req.query.search || req.query.user_id;
+
+  let page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  let limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
+  let offset = (page - 1) * limit;
   const searchQuery = req.query.search ? `%${req.query.search}%` : '%';
-  const userId = parseInt(req.query.user_id, 10) || 1;
+  let userId = parseInt(req.query.user_id, 10);
 
   try {
-    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'} and user_id: ${userId || 'None'}`);
+    if (!hasParams) {
+      // No query parameters: return ALL questions
+      console.log(`[GET] /api/questions - Returning all questions (no filters)`);
 
-    let query;
-    let countQuery;
-    const params = [];
-    const countParams = [];
-    
-    if (isNaN(userId)) {
-      userId = 1;
+      const [rows] = await db.query(`SELECT * FROM questions ORDER BY question_id`);
+      return res.json({ questions: rows });
     }
 
-    query = `
+    // Fallback to paginated logic
+    if (isNaN(userId)) userId = 1;
+
+    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'} and user_id: ${userId}`);
+
+    const query = `
       SELECT q.*, (
         SELECT COUNT(*)
         FROM questions q2
@@ -208,7 +211,7 @@ app.get('/api/questions', async (req, res) => {
       ORDER BY q.question_id
       LIMIT ? OFFSET ?;
     `;
-    params.push(userId, searchQuery, userId, searchQuery, limit, offset);
+    const params = [userId, searchQuery, userId, searchQuery, limit, offset];
 
     const [rows] = await db.query(query, params);
 
@@ -227,6 +230,63 @@ app.get('/api/questions', async (req, res) => {
     });
   } catch (err) {
     console.error(`[ERROR] Fetching questions: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/models', async (req, res) => {
+  try {
+    console.log('[GET] /api/models - Fetching all models');
+
+    const [rows] = await db.query('SELECT model_id, model_name FROM models ORDER BY model_id ASC');
+    res.json(rows);
+  } catch (err) {
+    console.error('[ERROR] Fetching models:', err.message);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Create a new model
+app.post('/api/models', async (req, res) => {
+  const { model_name } = req.body;
+
+  if (!model_name || typeof model_name !== 'string') {
+    return res.status(400).json({ message: 'Missing or invalid model_name.' });
+  }
+
+  try {
+    console.log(`[POST] /api/models - Attempting to insert model "${model_name}"`);
+
+    // Try inserting the model
+    const [result] = await db.query(
+      `INSERT IGNORE INTO models (model_name) VALUES (?)`,
+      [model_name]
+    );
+
+    let modelId;
+
+    if (result.insertId) {
+      // Newly inserted
+      modelId = result.insertId;
+      console.log(`[INSERTED] Model "${model_name}" with ID ${modelId}`);
+    } else {
+      // Already existed — fetch the existing model_id
+      const [rows] = await db.query(
+        `SELECT model_id FROM models WHERE model_name = ?`,
+        [model_name]
+      );
+
+      if (rows.length === 0) {
+        throw new Error(`Failed to retrieve model_id for "${model_name}" after insert`);
+      }
+
+      modelId = rows[0].model_id;
+      console.log(`[EXISTS] Model "${model_name}" already exists with ID ${modelId}`);
+    }
+
+    res.status(201).json({ message: 'Model processed successfully', model_id: modelId });
+  } catch (err) {
+    console.error(`[ERROR] Inserting model "${model_name}":`, err.message);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
@@ -259,27 +319,13 @@ app.get('/api/question', async (req, res) => {
 
 app.get('/api/generations', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
-  const userId = parseInt(req.query.user_id, 10);
 
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
   }
-  if (isNaN(userId)) {
-    return res.status(400).json({ message: 'Missing or invalid user_id' });
-  }
 
   try {
-    console.log(`[GET] /api/generations?question_id=${questionId}&user_id=${userId} - Checking assignment and fetching generations`);
-
-    // Check if the user is assigned to the question
-    const [assignmentCheck] = await db.query(
-      `SELECT 1 FROM user_questions WHERE question_id = ? AND user_id = ? LIMIT 1`,
-      [questionId, userId]
-    );
-
-    if (assignmentCheck.length === 0) {
-      return res.status(403).json({ message: 'Forbidden: You are not assigned to this question.' });
-    }
+    console.log(`[GET] /api/generations?question_id=${questionId} - Fetching generations`);
 
     const query = `
       SELECT g.generation_id, g.generation_text, m.model_name, m.model_id
@@ -301,6 +347,56 @@ app.get('/api/generations', async (req, res) => {
     });
   } catch (err) {
     console.error(`[ERROR] Fetching generations for question ${questionId}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/generations', async (req, res) => {
+  const { question_id, generation_text, model_name } = req.body;
+
+  if (!question_id || !generation_text || !model_name) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    // Check if model exists or insert it
+    const [modelRows] = await connection.query(
+      `SELECT model_id FROM models WHERE model_name = ?`,
+      [model_name]
+    );
+
+    let model_id;
+    if (modelRows.length > 0) {
+      model_id = modelRows[0].model_id;
+    } else {
+      const [modelInsert] = await connection.query(
+        `INSERT INTO models (model_name) VALUES (?)`,
+        [model_name]
+      );
+      model_id = modelInsert.insertId;
+    }
+
+    // Insert generation
+    const [genResult] = await connection.query(
+      `INSERT INTO generations (question_id, generation_text, model_id) VALUES (?, ?, ?)`,
+      [question_id, generation_text, model_id]
+    );
+
+    await connection.commit();
+    connection.release();
+
+    res.status(201).json({
+      message: 'Generation added successfully',
+      generation_id: genResult.insertId,
+      model_id
+    });
+  } catch (err) {
+    await connection.rollback();
+    connection.release();
+    console.error(`[ERROR] Adding generation: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
