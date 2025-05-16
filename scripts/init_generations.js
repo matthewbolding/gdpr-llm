@@ -94,7 +94,7 @@ async function uploadGenerations() {
     process.exit(1);
   }
 
-  // Loads the generations in from data/generations.json...
+  // Loads the generations from data/generations.json...
   const generationsOutput = await loadExistingGenerations();
 
   // Loads the questions from the database...
@@ -105,7 +105,7 @@ async function uploadGenerations() {
 
   // Iterate over the questions...
   for (const question of questions) {
-    console.log(`[INFO] Processing Question ${question.question_id}...`)
+    console.log(`[INFO] Processing Question ${question.question_id}...`);
     const short = question.question_text.slice(0, 25) + '...';
 
     // Fetches all the existing model_ids for a given question_id...
@@ -115,36 +115,46 @@ async function uploadGenerations() {
     for (const modelName of MODEL_NAMES) {
       const model_id = modelMap.get(modelName);
 
-      // If the (question_id, model_id) PK pair already exists...
+      // Skip if PK (question_id, model_id) already exists in the database...
       if (existingModelIds.has(model_id)) {
         console.log(`[SKIP] Already has generation for question ${question.question_id}, model ID ${model_id}`);
         continue;
       }
 
-      // Attempt to create a generation...
-      console.log(`[GEN] ${short} using ${modelName}`);
-      
+      // Check if there's a generation already saved locally...
+      const existingLocal = generationsOutput.find(
+        g => g.question_id === question.question_id && g.model_id === model_id
+      );
+
       let content;
-      try {
-        content = await generateFromModel(question, modelName);
-      } catch (err) {
-        console.error(`[ERROR] Generation failed for model ${modelName}: ${err.message}`);
+      if (existingLocal) {
+        console.log(`[REUSE] Using local generation for question ${question.question_id}, model ID ${model_id}`);
+        content = existingLocal.generation_text;
+      } else {
+        // Otherwise generate fresh content from OpenRouter
+        console.log(`[GEN] ${short} using ${modelName}`);
+        try {
+          content = await generateFromModel(question, modelName);
+        } catch (err) {
+          console.error(`[ERROR] Generation failed for model ${modelName}: ${err.message}`);
+          continue;
+        }
+
+        if (!content) {
+          console.warn(`[WARN] No content returned for question ${question.question_id} using ${modelName}`);
+          continue;
+        }
+
+        // Add new generation to local copy...
+        generationsOutput.push({
+          question_id: question.question_id,
+          model_id,
+          modelName,
+          generation_text: content
+        });
       }
 
-      if (!content) {
-        console.warn(`[WARN] No content returned for question ${question.question_id} using ${modelName}`);
-        continue;
-      }
-
-      // Push json object to generationsOutput for saving to disk...
-      generationsOutput.push({
-        question_id: question.question_id,
-        model_id,
-        modelName,
-        generation_text: content
-      });
-
-      // Create json object to post to generations endpoint...
+      // Post generation to database...
       const body = {
         question_id: question.question_id,
         generation_text: content,

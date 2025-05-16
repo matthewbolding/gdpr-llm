@@ -110,17 +110,39 @@ app.post('/api/register', async (req, res) => {
     return res.status(400).json({ message: 'Missing username or password.' });
   }
 
+  const connection = await db.getConnection(); // Optional if you're using a pool
   try {
-    const [existing] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    const [existing] = await connection.query('SELECT * FROM users WHERE username = ?', [username]);
     if (existing.length > 0) {
       return res.status(409).json({ message: 'Username already taken.' });
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const [result] = await db.query('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash]);
-    req.session.userId = result.insertId;
+    const [result] = await connection.query(
+      'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+      [username, hash]
+    );
+
+    const userId = result.insertId;
+
+    // Assign user to all existing questions
+    const [questions] = await connection.query('SELECT question_id FROM questions');
+
+    if (questions.length > 0) {
+      const values = questions.map(q => [userId, q.question_id]);
+      await connection.query(
+        'INSERT IGNORE INTO user_questions (user_id, question_id) VALUES ?',
+        [values]
+      );
+      console.log(`[ASSIGN] Assigned user ${userId} to ${questions.length} questions`);
+    } else {
+      console.log(`[ASSIGN] No questions found to assign to user ${userId}`);
+    }
+
+    // Set session and respond
+    req.session.userId = userId;
     req.session.username = username;
-    res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
+    res.status(201).json({ message: 'User registered successfully', userId });
   } catch (err) {
     console.error(`[ERROR] Registering user: ${err.message}`);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -176,53 +198,78 @@ app.get('/api/session', (req, res) => {
 });
 
 app.get('/api/questions', async (req, res) => {
-  const hasParams = req.query.page || req.query.limit || req.query.search || req.query.user_id;
-
-  let page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  let limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
-  let offset = (page - 1) * limit;
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
+  const offset = (page - 1) * limit;
+  const userId = req.query.user_id ? parseInt(req.query.user_id, 10) : null;
   const searchQuery = req.query.search ? `%${req.query.search}%` : '%';
-  let userId = parseInt(req.query.user_id, 10);
 
   try {
-    if (!hasParams) {
-      // No query parameters: return ALL questions
-      console.log(`[GET] /api/questions - Returning all questions (no filters)`);
+    // If no user_id or search is provided, fetch all questions
+    if (!userId && req.query.search == null) {
+      console.log(`[GET] /api/questions - No filters, returning all questions`);
 
       const [rows] = await db.query(`SELECT * FROM questions ORDER BY question_id`);
       return res.json({ questions: rows });
     }
 
-    // Fallback to paginated logic
-    if (isNaN(userId)) userId = 1;
+    // If filters are present
+    console.log(`[GET] /api/questions - Filters detected (user_id=${userId}, search="${req.query.search || 'None'}")`);
 
-    console.log(`[GET] /api/questions - Fetching page ${page} (limit: ${limit}) with search query: ${req.query.search || 'None'} and user_id: ${userId}`);
+    // Query when user_id is provided
+    if (userId) {
+      const query = `
+        SELECT q.*, (
+          SELECT COUNT(*)
+          FROM questions q2
+          JOIN user_questions uq2 ON q2.question_id = uq2.question_id
+          WHERE uq2.user_id = ? AND q2.question_text LIKE ?
+        ) AS total_count
+        FROM questions q
+        JOIN user_questions uq ON q.question_id = uq.question_id
+        WHERE uq.user_id = ? AND q.question_text LIKE ?
+        ORDER BY q.question_id
+        LIMIT ? OFFSET ?;
+      `;
+      const params = [userId, searchQuery, userId, searchQuery, limit, offset];
+      const [rows] = await db.query(query, params);
 
+      if (rows.length === 0) {
+        return res.status(404).json({ message: 'No questions found.' });
+      }
+
+      const total = rows[0].total_count || 0;
+      const totalPages = Math.ceil(total / limit);
+
+      return res.json({
+        questions: rows.map(({ total_count, ...q }) => q),
+        total,
+        totalPages,
+        currentPage: page
+      });
+    }
+
+    // If only a search term is provided (no user_id)
     const query = `
-      SELECT q.*, (
-        SELECT COUNT(*)
-        FROM questions q2
-        JOIN user_questions uq2 ON q2.question_id = uq2.question_id
-        WHERE uq2.user_id = ? AND q2.question_text LIKE ?
+      SELECT *, (
+        SELECT COUNT(*) FROM questions WHERE question_text LIKE ?
       ) AS total_count
-      FROM questions q
-      JOIN user_questions uq ON q.question_id = uq.question_id
-      WHERE uq.user_id = ? AND q.question_text LIKE ?
-      ORDER BY q.question_id
+      FROM questions
+      WHERE question_text LIKE ?
+      ORDER BY question_id
       LIMIT ? OFFSET ?;
     `;
-    const params = [userId, searchQuery, userId, searchQuery, limit, offset];
-
+    const params = [searchQuery, searchQuery, limit, offset];
     const [rows] = await db.query(query, params);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: 'No questions found.' });
     }
 
-    const total = rows.length > 0 ? rows[0].total_count : 0;
+    const total = rows[0].total_count || 0;
     const totalPages = Math.ceil(total / limit);
 
-    res.json({
+    return res.json({
       questions: rows.map(({ total_count, ...q }) => q),
       total,
       totalPages,
@@ -233,6 +280,7 @@ app.get('/api/questions', async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
 
 app.get('/api/models', async (req, res) => {
   try {

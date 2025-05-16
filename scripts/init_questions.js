@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 const FILE_PATH = './data/questions.txt';
 const API_URL = 'http://localhost:3001/api/questions';
-const GET_ALL_URL = 'http://localhost:3001/api/questions?page=1&limit=10000&user_id=1';
+const GET_ALL_URL = 'http://localhost:3001/api/questions';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');

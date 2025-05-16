@@ -7,17 +7,12 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL
 );
 
--- Placeholder hash to be replaced by database initialization script...
-INSERT INTO users (username, password_hash)
-VALUES ('admin', '$2b$10$REPLACE_WITH_BCRYPT_HASH');
-
 CREATE TABLE questions (
     question_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     question_text TEXT NOT NULL
 );
 
 CREATE INDEX idx_question_text ON questions(question_text(255));
-
 
 CREATE TABLE user_questions (
   user_id BIGINT UNSIGNED NOT NULL,
@@ -26,14 +21,6 @@ CREATE TABLE user_questions (
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
-
-CREATE TRIGGER after_insert_question_assign_admin
-AFTER INSERT ON questions
-FOR EACH ROW
-BEGIN
-  INSERT INTO user_questions (user_id, question_id)
-  VALUES (1, NEW.question_id);
-END;
 
 CREATE TABLE models (
     model_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
