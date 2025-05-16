@@ -6,7 +6,7 @@ import os from 'os';
 
 dotenv.config();
 
-const QUESTIONS_API = 'http://10.126.1.103:3001/api/questions?page=1&limit=2';
+const QUESTIONS_API = 'http://10.126.1.103:3001/api/questions';
 const MODELS_API = 'http://localhost:3001/api/models';
 const GENERATIONS_API = 'http://localhost:3001/api/generations';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -14,9 +14,7 @@ const MODEL_NAMES = ['google/gemini-2.0-flash-001', 'anthropic/claude-3.7-sonnet
 const GENERATIONS_PATH = path.join(os.homedir(), 'gdpr-llm', 'data', 'generations.json');
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const dryRun = process.argv.includes('--dry-run');
 
-// Load existing generations JSON file (or start fresh)
 async function loadExistingGenerations() {
   try {
     const data = await fs.readFile(GENERATIONS_PATH, 'utf8');
@@ -89,61 +87,81 @@ async function generateFromModel(question, modelName) {
   return data.choices?.[0]?.message?.content?.trim();
 }
 
+// Main script function...
 async function uploadGenerations() {
   if (!OPENROUTER_API_KEY) {
     console.error('OPENROUTER_API_KEY not set.');
     process.exit(1);
   }
 
+  // Loads the generations in from data/generations.json...
   const generationsOutput = await loadExistingGenerations();
+
+  // Loads the questions from the database...
   const questions = await fetchQuestions();
+
+  // Ensures that all the models specified in MODEL_NAMES exist in the database...
   const modelMap = await ensureModels();
 
+  // Iterate over the questions...
   for (const question of questions) {
+    console.log(`[INFO] Processing Question ${question.question_id}...`)
     const short = question.question_text.slice(0, 25) + '...';
+
+    // Fetches all the existing model_ids for a given question_id...
     const existingModelIds = await fetchExistingGenerationModelIds(question.question_id);
 
+    // Iterate over the chosen models...
     for (const modelName of MODEL_NAMES) {
       const model_id = modelMap.get(modelName);
 
+      // If the (question_id, model_id) PK pair already exists...
       if (existingModelIds.has(model_id)) {
         console.log(`[SKIP] Already has generation for question ${question.question_id}, model ID ${model_id}`);
         continue;
       }
 
+      // Attempt to create a generation...
       console.log(`[GEN] ${short} using ${modelName}`);
+      
+      let content;
+      try {
+        content = await generateFromModel(question, modelName);
+      } catch (err) {
+        console.error(`[ERROR] Generation failed for model ${modelName}: ${err.message}`);
+      }
 
-      const content = await generateFromModel(question, modelName);
       if (!content) {
         console.warn(`[WARN] No content returned for question ${question.question_id} using ${modelName}`);
         continue;
       }
 
+      // Push json object to generationsOutput for saving to disk...
       generationsOutput.push({
         question_id: question.question_id,
         model_id,
+        modelName,
         generation_text: content
       });
 
-      if (dryRun) {
-        console.log(`[DRY-RUN] Would insert generation for question ${question.question_id}, model ID ${model_id}`);
-      } else {
-        const res = await fetch(GENERATIONS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            question_id: question.question_id,
-            generation_text: content,
-            model_name: modelName
-          })
-        });
+      // Create json object to post to generations endpoint...
+      const body = {
+        question_id: question.question_id,
+        generation_text: content,
+        model_name: modelName
+      };
 
-        const data = await res.json();
-        if (!res.ok) {
-          console.error(`[ERROR] Failed to insert generation: ${data.message}`);
-        } else {
-          console.log(`[INSERTED] Generation ID ${data.generation_id}`);
-        }
+      const res = await fetch(GENERATIONS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error(`[ERROR] Failed to insert generation: ${data.message}`);
+      } else {
+        console.log(`[INSERTED] Generation ID ${data.generation_id}`);
       }
     }
   }

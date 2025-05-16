@@ -9,7 +9,7 @@ CREATE TABLE users (
 
 -- Placeholder hash to be replaced by database initialization script...
 INSERT INTO users (username, password_hash)
-VALUES ('Administrator', '$2b$10$REPLACE_WITH_BCRYPT_HASH');
+VALUES ('admin', '$2b$10$REPLACE_WITH_BCRYPT_HASH');
 
 CREATE TABLE questions (
     question_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

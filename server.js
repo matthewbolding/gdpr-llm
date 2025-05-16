@@ -379,6 +379,8 @@ app.post('/api/generations', async (req, res) => {
       model_id = modelInsert.insertId;
     }
 
+    console.log(`[POST] /api/generations?question_id=${question_id}&model_id=${model_id} - Inserting generation`);
+
     // Insert generation
     const [genResult] = await connection.query(
       `INSERT INTO generations (question_id, generation_text, model_id) VALUES (?, ?, ?)`,
