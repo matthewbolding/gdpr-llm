@@ -96,8 +96,8 @@
     
       try {
         const [ratingRes, writeinRes] = await Promise.all([
-          fetch(`/api/time/ratings?question_id=${questionId}`),
-          fetch(`/api/time/writeins?question_id=${questionId}`)
+          fetch(`/api/time/ratings?question_id=${questionId}&user_id=${userId}`),
+          fetch(`/api/time/writeins?question_id=${questionId}&user_id=${userId}`)
         ]);
       
         const ratingData = await ratingRes.json();
@@ -125,7 +125,7 @@
       const questionId = question.question_id;
 
       try {
-        const response = await fetch(`/api/questions/is-answered?question_id=${questionId}`);
+        const response = await fetch(`/api/questions/is-answered?question_id=${questionId}&user_id=${userId}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch completion status for question ${questionId}`);
         }
@@ -256,7 +256,6 @@
             placeholder="Search..."
             bind:value={searchQuery}
             on:input={handleSearch} />
-            <button on:click={goToAssignments}>Make Question Assignments</button>
         </div>
     
         <div class="per-page-control">
@@ -271,6 +270,7 @@
             <option value={20}>20</option>
             <option value={50}>50</option>
           </select>
+          <button on:click={goToAssignments}>Make Question Assignments</button>
         </div>
       </div>
   

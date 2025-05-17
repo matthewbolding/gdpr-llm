@@ -734,11 +734,7 @@ app.get('/api/writeins/latest', async (req, res) => {
 
 app.get('/api/time/ratings', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
-  const userId = req.session.userId;
-
-  if (!userId) {
-    return res.status(401).json({ message: 'Must be logged in.' });
-  }
+  const userId = parseInt(req.query.user_id, 10);
   
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
@@ -761,11 +757,7 @@ app.get('/api/time/ratings', async (req, res) => {
 
 app.get('/api/time/writeins', async (req, res) => {
   const questionId = parseInt(req.query.question_id, 10);
-  const userId = req.session.userId;
-
-  if (!userId) {
-    return res.status(401).json({ message: 'Must be logged in.' });
-  }
+  const userId = parseInt(req.query.user_id, 10);
   
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
@@ -787,12 +779,8 @@ app.get('/api/time/writeins', async (req, res) => {
 });
 
 app.get('/api/questions/is-answered', async (req, res) => {
-  const userId = req.session.userId;
+  const userId = parseInt(req.query.user_id, 10);
   const questionId = parseInt(req.query.question_id, 10);
-
-  if (!userId) {
-    return res.status(401).json({ message: 'Must be logged in.' });
-  }
 
   if (isNaN(questionId)) {
     return res.status(400).json({ message: 'Invalid question_id' });
