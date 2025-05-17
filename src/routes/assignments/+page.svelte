@@ -29,31 +29,35 @@
 
     // Fetch per-assignment metadata lazily
     for (const { user_id, question_id } of assigned) {
-      const key = `${user_id}-${question_id}`;
-
-      // Fetch each assignment's info individually (non-blocking)
-      (async () => {
-        try {
-          const [ratingsRes, writeinsRes, answeredRes] = await Promise.all([
-            fetch(`/api/time/ratings?question_id=${question_id}&user_id=${user_id}`),
-            fetch(`/api/time/writeins?question_id=${question_id}&user_id=${user_id}`),
-            fetch(`/api/questions/is-answered?question_id=${question_id}&user_id=${user_id}`)
-          ]);
-
-          const ratingsTime = parseInt((await ratingsRes.json()).total_rating_time, 10) || 0;
-          const writeinsTime = parseInt((await writeinsRes.json()).total_rating_time, 10) || 0;
-          const isAnswered = (await answeredRes.json()).is_answered;
-
-          // Trigger reactivity
-          assignmentInfo = new Map(assignmentInfo.set(key, {
-            complete: isAnswered,
-            time: ratingsTime + writeinsTime
-          }));
-        } catch (err) {
-          console.error(`Error loading metadata for ${key}: ${err.message}`);
-        }
-      })();
-    }
+    const key = `${user_id}-${question_id}`;
+  
+    // Add placeholder to show "Loading..." immediately
+    assignmentInfo.set(key, null);
+    assignmentInfo = new Map(assignmentInfo); // force reactivity
+  
+    // Fetch metadata async
+    (async () => {
+      try {
+        const [ratingsRes, writeinsRes, answeredRes] = await Promise.all([
+          fetch(`/api/time/ratings?question_id=${question_id}&user_id=${user_id}`),
+          fetch(`/api/time/writeins?question_id=${question_id}&user_id=${user_id}`),
+          fetch(`/api/questions/is-answered?question_id=${question_id}&user_id=${user_id}`)
+        ]);
+  
+        const ratingsTime = parseInt((await ratingsRes.json()).total_rating_time, 10) || 0;
+        const writeinsTime = parseInt((await writeinsRes.json()).total_rating_time, 10) || 0;
+        const isAnswered = (await answeredRes.json()).is_answered;
+  
+        assignmentInfo.set(key, {
+          complete: isAnswered,
+          time: ratingsTime + writeinsTime
+        });
+        assignmentInfo = new Map(assignmentInfo);
+      } catch (err) {
+        console.error(`Error loading metadata for ${key}: ${err.message}`);
+      }
+    })();
+  }
   }
 
   function isChecked(user_id, question_id) {
@@ -176,8 +180,8 @@
             <td>{q.question_text}</td>
             {#each users as user}
               <td style="text-align: center;">
-                {#key `${user.user_id}-${q.question_id}`} <!-- force reactivity -->
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 0.5em; font-size: 0.8em;">
+                {#key `${user.user_id}-${q.question_id}`}
+                  <div class="cell">
                     <input
                       type="checkbox"
                       checked={assignments.has(`${user.user_id}-${q.question_id}`)}
@@ -186,7 +190,7 @@
                     {#if assignments.has(`${user.user_id}-${q.question_id}`)}
                       {#if assignmentInfo.has(`${user.user_id}-${q.question_id}`)}
                         {#if assignmentInfo.get(`${user.user_id}-${q.question_id}`) === null}
-                          <span>Loading...</span>
+                          <span style="grid-column: 2 / span 2;">Loading...</span>
                         {:else}
                           <span class="status {assignmentInfo.get(`${user.user_id}-${q.question_id}`).complete ? 'complete' : 'incomplete'}">
                             {assignmentInfo.get(`${user.user_id}-${q.question_id}`).complete ? 'Complete' : 'Incomplete'}
@@ -211,6 +215,15 @@
 <style>
   .container {
     padding: 2rem;
+  }
+
+  .cell {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    justify-items: center;
+    font-size: 0.8em;
+    gap: 0.3em;
   }
 
   button {
@@ -288,7 +301,6 @@
 
   .status {
     font-weight: bold;
-    margin-top: 10px;
   }
 
   :global(body) {
