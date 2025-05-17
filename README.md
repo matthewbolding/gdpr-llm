@@ -29,13 +29,12 @@ For the `server.js` file to communicate with the MySQL server, you must create a
 Also required is a `.env` file. This file will contain two secrets.
 
 ```env
-ADMIN_PASSWORD=ADMIN_PASSWORD_HERE
 SESSION_SECRET=SESSION_SECRET_HERE
 OPENROUTER_API_KEY=API_SECRET_HERE
 ```
 
 Three scripts are provided in the `scripts` folder: `init_db.js`, `init_question.js`, and `init_generations`. 
-- `init_db.js` initialized the database schema and creates a default user, admin, whose password is stored within the `.env` file. 
+- `init_db.js` initialized the database schema. No users are created.
 - `init_question.js` inserts the questions from the `data/questions.txt` file into the `questions` table. View that text file to see the how to properly input questions to the system.
 - `init_generations.js` interfaces with openrouter.ai to programmatically fetch generations for all questions from each of the desired models. The script will write all the generations to `data/generations.json`.
 

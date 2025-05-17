@@ -84,7 +84,7 @@
   }
 
   .auth-card {
-    max-width: 400px;
+    max-width: 600px;
     width: 100%;
     border: 1px solid #ccc;
     padding: 5rem;
@@ -122,7 +122,7 @@
     position: absolute;
     top: 50%;
     transform: translateY(-65%);
-    right: 0rem;
+    right: 0.5rem;
     background: none;
     border: none;
     cursor: pointer;
@@ -172,6 +172,10 @@
   button[type="submit"]:disabled {
     background-color: #aaa;
     cursor: not-allowed;
+  }
+
+  * {
+    box-sizing: border-box;
   }
 
   :global(body) {

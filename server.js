@@ -149,6 +149,31 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Reset Password
+app.post('/api/reset-password', async (req, res) => {
+  const { username, new_password } = req.body;
+
+  if (!username || !new_password) {
+    return res.status(400).json({ message: 'Username and new password are required.' });
+  }
+
+  try {
+    const [rows] = await db.query('SELECT user_id FROM users WHERE username = ?', [username]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 12);
+    await db.query('UPDATE users SET password_hash = ? WHERE username = ?', [hash, username]);
+
+    console.log(`[POST] Password for ${username} updated.`);
+    res.status(200).json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    console.error(`[ERROR] Resetting password for ${username}: ${err.message}`);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 // User Login
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;

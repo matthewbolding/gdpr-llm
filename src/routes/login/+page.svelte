@@ -48,6 +48,10 @@
     <p class="register-link">
       Don't have an account? <a href="/register">Register</a>
     </p>
+
+    <p class="register-link">
+      <a href="/reset-password">Forgot password?</a>
+    </p>
   </div>
 </main>
 
@@ -59,7 +63,7 @@
   }
 
   .auth-card {
-    max-width: 400px;
+    max-width: 600px;
     width: 100%;
     border: 1px solid #ccc;
     padding: 5rem;
@@ -122,6 +126,10 @@
   button:disabled {
     background-color: #aaa;
     cursor: not-allowed;
+  }
+
+  * {
+    box-sizing: border-box;
   }
 
   :global(body) {
